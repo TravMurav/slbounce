@@ -35,8 +35,13 @@ LIBEFI_A 	:= $(GNUEFI_OUT)/lib/libefi.a
 LIBGNUEFI_A 	:= $(GNUEFI_OUT)/gnuefi/libgnuefi.a
 CRT0_O 		:= $(GNUEFI_OUT)/gnuefi/crt0-efi-$(ARCH).o
 
+OBJS := \
+	$(OUT_DIR)/main.o \
+	$(OUT_DIR)/util.o \
+	$(OUT_DIR)/arch.o \
+	$(OUT_DIR)/sl.o \
 
-all: $(OUT_DIR) $(LIBEFI_A) $(LIBGNUEFI_A) $(OUT_DIR)/main.efi
+all: $(OUT_DIR) $(LIBEFI_A) $(LIBGNUEFI_A) $(OUT_DIR)/slbounce.efi
 
 $(OUT_DIR):
 	mkdir $@
@@ -53,17 +58,17 @@ $(LIBGNUEFI_A):
 	@$(MAKE) -C$(GNUEFI_DIR) CROSS_COMPILE=$(CROSS_COMPILE) ARCH=$(ARCH) gnuefi
 	rm $(GNUEFI_DIR)/inc/elf.h
 
-$(OUT_DIR)/%.so: $(OUT_DIR)/%.o
-	@echo [ LD  ] $$(basename $<)
-	@$(CC) $(LDFLAGS) $(CRT0_O) $< -o $@ $(LIBS)
+$(OUT_DIR)/slbounce.so: $(OBJS)
+	@echo [ LD  ] $$(basename $@)
+	@$(CC) $(LDFLAGS) $(CRT0_O) $^ -o $@ $(LIBS)
 
 $(OUT_DIR)/%.efi: $(OUT_DIR)/%.so
-	@echo [ CPY ] $$(basename $<)
+	@echo [ CPY ] $$(basename $@)
 	@$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel* \
 	            -j .rela* -j .reloc -j .eh_frame -O binary $< $@
 
 $(OUT_DIR)/%.o: src/%.c
-	@echo [ CC  ] $$(basename $<)
+	@echo [ CC  ] $$(basename $@)
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 .PHONY: clean

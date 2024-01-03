@@ -2,6 +2,7 @@
 #define SL_H
 
 #include <stdint.h>
+#include <efi.h>
 
 #define __PACKED __attribute__((packed))
 
@@ -67,7 +68,7 @@ struct sl_tz_data {
 	uint64_t tb_ttbr0;
 	uint64_t tb_ttbr1;
 
-	struct sl_dma_range[2];
+	struct sl_dma_range dma_ranges[2];
 	uint32_t dma_ranges_cnt;
 } __PACKED;
 
@@ -108,8 +109,10 @@ struct sl_boot_params {
 	uint32_t unk1;				// 1
 	uint32_t unk2;				// 0x14
 	uint32_t unk3;				// 0x30
-	uint32_t unk3;				// cnt? / 0x30
-	uint32_t unk3;				// 0x10
+	uint32_t unk4;				// cnt? / 0x30
+	uint32_t unk5;				// 0x10
 } __PACKED;
+
+EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch);
 
 #endif
