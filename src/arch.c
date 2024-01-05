@@ -39,3 +39,12 @@ void psci_off(void)
 		"smc #0\n\t"
 	);
 }
+
+void tb_func(struct sl_tb_data *tb_data)
+{
+	__asm__ volatile(
+		"mov x0, #0x84000000\n\t"
+		"add x0, x0, #8\n\t"
+		"smc #0\n\t"
+	);
+}

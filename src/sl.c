@@ -40,7 +40,16 @@ EFI_STATUS sl_get_cert_entry(UINT8 *tcb_data, UINT8 **data, UINT64 *size)
 
 	Print(L"Cert: Len=0x%x, Rev=0x%x, Type=0x%x\n", cert->dwLength, cert->wRevision, cert->wCertificateType);
 
+	if (cert->wRevision != 0x200 || cert->wCertificateType != 2)
+		return EFI_INVALID_PARAMETER;
+
 	return EFI_SUCCESS;
+}
+
+static void dump_smc_params(struct sl_smc_params *dat)
+{
+	Print(L"SMC Params: [%d/%d/0x%x] id=%d | pe: 0x%x (0x%x b) | arg: 0x%x (0x%x b)\n",
+		dat->a, dat->b, dat->version, dat->num, dat->pe_data, dat->pe_size, dat->arg_data, dat->arg_size);
 }
 
 EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
@@ -78,7 +87,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 	/* Allocate a buffer for Secure Launch procecss. */
 
 	EFI_PHYSICAL_ADDRESS buf_phys = 0;
-	UINT64 buf_pages = 30 + cert_pages;
+	UINT64 buf_pages = 27 + cert_pages + 3;
 
 	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, buf_pages, &buf_phys);
 	if (EFI_ERROR(ret))
@@ -133,14 +142,15 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 
 	/* Set up return code path for when tcblaunch.exe fails to start */
 
-	tz_data->tb_entry_point = (uint64_t)psci_off;
-	tz_data->tb_virt = (((uint64_t)psci_off) / 4096 - 1) * 4096;
+	tz_data->tb_entry_point = (uint64_t)tb_func;
+	tz_data->tb_virt = (((uint64_t)tb_func) / 4096 - 1) * 4096;
 	tz_data->tb_phys = tz_data->tb_virt;
 	tz_data->tb_size = 4096 * 2;
 
-	Print(L"TB entry is 0x%x, section is at 0x%x, size= 0x%x\n",
+	Print(L"TB entrypoint is 0x%x, section is at 0x%x, size= 0x%x\n",
 		tz_data->tb_entry_point, tz_data->tb_virt, tz_data->tb_size);
-	/* Allocate (bogus) boot parameters */
+
+	/* Allocate (bogus) boot parameters for tcb. */
 
 	EFI_PHYSICAL_ADDRESS bootparams_phys = 0;
 	UINT64 bootparams_pages = 3;
@@ -160,27 +170,34 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 	smc_data->arg_data = tz_data->this_phys;
 	smc_data->arg_size = tz_data->this_size;
 
-	//goto exit_bp; // =======================================
+	/* Perform the SMC calls to launch the tcb with our data */
 
 	Print(L"Data creation is done. Trying to bounce...\n");
 
 	smc_data->num = SL_CMD_IS_AVAILABLE;
+	dump_smc_params(smc_data);
 
 	clear_dcache_range((uint64_t)buf, 4096 * buf_pages);
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
 	Print(L" == Available: 0x%x\n", smcret);
+	if (smcret)
+		goto exit_corrupted;
 
 	smc_data->num = SL_CMD_AUTH;
 
 	clear_dcache_range((uint64_t)buf, 4096 * buf_pages);
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
 	Print(L" == Auth: 0x%x\n", smcret);
+	if (smcret)
+		goto exit_corrupted;
 
 	smc_data->num = SL_CMD_LAUNCH;
 
 	clear_dcache_range((uint64_t)buf, 4096 * buf_pages);
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
 	Print(L" == Launch: 0x%x\n", smcret);
+	if (smcret)
+		goto exit_corrupted;
 
 	Print(L"Bounce is done. Cleaning up.\n");
 
@@ -200,4 +217,11 @@ exit_tcb:
 		return ret;
 exit:
 	return ret;
+
+exit_corrupted:
+	Print(L"===========================================\n");
+	Print(L"      SMC failed with ret = 0x%x\n", smcret);
+	Print(L" Assume this system is in corrupted state!\n");
+	Print(L"===========================================\n");
+	return EFI_UNSUPPORTED;
 }

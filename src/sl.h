@@ -25,6 +25,8 @@ struct sl_smc_params {
 	uint64_t pe_size;
 	uint64_t arg_data;
 	uint64_t arg_size;
+
+	uint64_t nosb_entry_point;
 } __PACKED;
 
 
@@ -32,6 +34,14 @@ struct sl_dma_range {
 	uint64_t a;
 	uint64_t b;
 	uint64_t c;
+} __PACKED;
+
+struct sl_tb_data {
+	uint64_t mair;
+	uint64_t sp;
+	uint64_t tcr;
+	uint64_t ttbr0;
+	uint64_t ttbr1;
 } __PACKED;
 
 struct sl_tz_data {
@@ -62,11 +72,7 @@ struct sl_tz_data {
 	uint64_t tb_size;
 
 	// ptr to this is passed in to tb entry.
-	uint64_t tb_mair;
-	uint64_t tb_stack;
-	uint64_t tb_tcr;
-	uint64_t tb_ttbr0;
-	uint64_t tb_ttbr1;
+	struct sl_tb_data tb_data;
 
 	struct sl_dma_range dma_ranges[2];
 	uint32_t dma_ranges_cnt;
