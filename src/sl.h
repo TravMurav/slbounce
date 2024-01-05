@@ -12,6 +12,7 @@ enum sl_cmd {
 	SL_CMD_IS_AVAILABLE	= 1,
 	SL_CMD_AUTH		= 2,
 	SL_CMD_LAUNCH		= 4,
+	SL_CMD_UNMAP		= 5,
 };
 
 struct sl_smc_params {

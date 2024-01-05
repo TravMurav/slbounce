@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /* Copyright (c) 2024 Nikita Travkin <nikita@trvn.ru> */
 
+#define EFI_DEBUG 1
+
 #include <stdint.h>
 
 #include <efi.h>
 #include <efilib.h>
+#include <efidebug.h>
 
 #include <sysreg/currentel.h>
 
@@ -169,6 +172,20 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 
 	smc_data->arg_data = tz_data->this_phys;
 	smc_data->arg_size = tz_data->this_size;
+
+	/* Do some sanity checks */
+
+	ASSERT(tz_data->version == 1);
+	ASSERT(tz_data->cert_offt > 0x17);
+	ASSERT(tz_data->cert_size != 0);
+	ASSERT(tz_data->this_size > tz_data->cert_offt);
+	ASSERT(tz_data->this_size - tz_data->cert_offt >= tz_data->cert_size);
+	ASSERT(tz_data->tcg_offt > 0x17);
+	ASSERT(tz_data->tcg_size != 0);
+	ASSERT(tz_data->this_size > tz_data->tcg_offt);
+	ASSERT(tz_data->this_size - tz_data->tcg_offt >= tz_data->tcg_size);
+
+	//goto exit_bp; // ===========================================================================================
 
 	/* Perform the SMC calls to launch the tcb with our data */
 
