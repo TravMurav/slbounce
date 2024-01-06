@@ -55,6 +55,29 @@ static void dump_smc_params(struct sl_smc_params *dat)
 		dat->a, dat->b, dat->version, dat->num, dat->pe_data, dat->pe_size, dat->arg_data, dat->arg_size);
 }
 
+static void dump_hyp_logs()
+{
+	/* tzlog at 0x146aa720 + 0x410 */
+	uint64_t log_phys = 0x801fa000;
+	uint64_t log_size = 0x00002000;
+
+	//uefi_call_wrapper(BS->Stall, 1, 1000000);
+	clear_dcache_range(log_phys, log_size);
+
+	char *log = (char *)log_phys;
+
+	char *p = log;
+
+	Print(L"===== HYP logs ====\n");
+
+	for (int i = 0; i < log_size; ++i) {
+		if (p[i] && !(p[i] == '\n' && p[i-2] == '\n'))
+			Print(L"%c", p[i]);
+	}
+
+	Print(L"===================\n");
+}
+
 EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 {
 	EFI_STATUS ret = EFI_SUCCESS;
@@ -113,6 +136,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 	 */
 
 	UINT8 *buf = (UINT8 *)buf_phys;
+	SetMem(buf, 4096 * buf_pages, 0);
 
 	struct sl_smc_params *smc_data = (struct sl_smc_params *)(buf + 4096 * 1);
 	smc_data->a = 1;
@@ -175,6 +199,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 
 	/* Do some sanity checks */
 
+	/* mssecapp.mbn */
 	ASSERT(tz_data->version == 1);
 	ASSERT(tz_data->cert_offt > 0x17);
 	ASSERT(tz_data->cert_size != 0);
@@ -185,34 +210,45 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 	ASSERT(tz_data->this_size > tz_data->tcg_offt);
 	ASSERT(tz_data->this_size - tz_data->tcg_offt >= tz_data->tcg_size);
 
+	//tz_data->version = 2;
+	//tz_data->cert_offt = 2;
+
 	//goto exit_bp; // ===========================================================================================
 
 	/* Perform the SMC calls to launch the tcb with our data */
 
 	Print(L"Data creation is done. Trying to bounce...\n");
 
-	smc_data->num = SL_CMD_IS_AVAILABLE;
 	dump_smc_params(smc_data);
 
+	clear_dcache_range((uint64_t)tcb_data, 4096 * tcb_pages);
 	clear_dcache_range((uint64_t)buf, 4096 * buf_pages);
+	clear_dcache_range((uint64_t)bootparams, 4096 * bootparams_pages);
+
+	smc_data->num = SL_CMD_IS_AVAILABLE;
+	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
+
+	Print(L" == Available: ");
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
-	Print(L" == Available: 0x%x\n", smcret);
+	Print(L"0x%x\n", smcret);
 	if (smcret)
 		goto exit_corrupted;
 
 	smc_data->num = SL_CMD_AUTH;
+	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
 
-	clear_dcache_range((uint64_t)buf, 4096 * buf_pages);
+	Print(L" == Auth: ");
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
-	Print(L" == Auth: 0x%x\n", smcret);
+	Print(L"0x%x\n", smcret);
 	if (smcret)
 		goto exit_corrupted;
 
 	smc_data->num = SL_CMD_LAUNCH;
+	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
 
-	clear_dcache_range((uint64_t)buf, 4096 * buf_pages);
+	Print(L" == Launch: ");
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
-	Print(L" == Launch: 0x%x\n", smcret);
+	Print(L"0x%x\n", smcret);
 	if (smcret)
 		goto exit_corrupted;
 
@@ -240,5 +276,8 @@ exit_corrupted:
 	Print(L"      SMC failed with ret = 0x%x\n", smcret);
 	Print(L" Assume this system is in corrupted state!\n");
 	Print(L"===========================================\n");
+
+	dump_hyp_logs();
+
 	return EFI_UNSUPPORTED;
 }

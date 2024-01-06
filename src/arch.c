@@ -3,7 +3,12 @@
 
 #include <stdint.h>
 
+#include <efi.h>
+#include <efilib.h>
+
 #include <sysreg/ctr_el0.h>
+
+#include "sl.h"
 
 void clear_dcache_range(uint64_t start, uint64_t size)
 {
@@ -23,7 +28,6 @@ uint64_t smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
 	register uint64_t r1 __asm__("r1") = x1;
 	register uint64_t r2 __asm__("r2") = x2;
 	register uint64_t r3 __asm__("r3") = x3;
-
 	__asm__ volatile(
 		"smc	#0\n"
 		: "+r" (r0) : : "r1", "r2", "r3"
