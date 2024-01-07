@@ -40,6 +40,7 @@ OBJS := \
 	$(OUT_DIR)/util.o \
 	$(OUT_DIR)/arch.o \
 	$(OUT_DIR)/sl.o \
+	$(OUT_DIR)/tzlog.o \
 
 all: $(OUT_DIR) $(LIBEFI_A) $(LIBGNUEFI_A) $(OUT_DIR)/slbounce.efi
 

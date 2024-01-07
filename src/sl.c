@@ -15,6 +15,7 @@
 
 #include "util.h"
 #include "arch.h"
+#include "tzlog.h"
 #include "sl.h"
 
 EFI_STATUS sl_get_cert_entry(UINT8 *tcb_data, UINT8 **data, UINT64 *size)
@@ -53,29 +54,6 @@ static void dump_smc_params(struct sl_smc_params *dat)
 {
 	Print(L"SMC Params: [%d/%d/0x%x] id=%d | pe: 0x%x (0x%x b) | arg: 0x%x (0x%x b)\n",
 		dat->a, dat->b, dat->version, dat->num, dat->pe_data, dat->pe_size, dat->arg_data, dat->arg_size);
-}
-
-static void dump_hyp_logs()
-{
-	/* tzlog at 0x146aa720 + 0x410 */
-	uint64_t log_phys = 0x801fa000;
-	uint64_t log_size = 0x00002000;
-
-	//uefi_call_wrapper(BS->Stall, 1, 1000000);
-	clear_dcache_range(log_phys, log_size);
-
-	char *log = (char *)log_phys;
-
-	char *p = log;
-
-	Print(L"===== HYP logs ====\n");
-
-	for (int i = 0; i < log_size; ++i) {
-		if (p[i] && !(p[i] == '\n' && p[i-2] == '\n'))
-			Print(L"%c", p[i]);
-	}
-
-	Print(L"===================\n");
 }
 
 EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
@@ -213,6 +191,11 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 	//tz_data->version = 2;
 	//tz_data->cert_offt = 2;
 
+	register_tz_logs();
+
+	//dump_hyp_logs();
+	//dump_tz_logs();
+
 	//goto exit_bp; // ===========================================================================================
 
 	/* Perform the SMC calls to launch the tcb with our data */
@@ -278,6 +261,7 @@ exit_corrupted:
 	Print(L"===========================================\n");
 
 	dump_hyp_logs();
+	dump_tz_logs();
 
 	return EFI_UNSUPPORTED;
 }
