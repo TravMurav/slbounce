@@ -64,10 +64,10 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 	/* Allocate and load the tcblaunch.exe file. */
 
 	UINT64 tcb_size = FileSize(tcblaunch);
-	UINT64 tcb_pages = tcb_size / 4096 + 1;
-	EFI_PHYSICAL_ADDRESS tcb_phys = 0;
+	UINT64 tcb_pages = tcb_size / 4096 + 1 + 3;
+	EFI_PHYSICAL_ADDRESS tcb_phys = 0x95000000;
 
-	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, tcb_pages, &tcb_phys);
+	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateMaxAddress, EfiLoaderData, tcb_pages, &tcb_phys);
 	if (EFI_ERROR(ret))
 		goto exit;
 
@@ -90,10 +90,10 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 
 	/* Allocate a buffer for Secure Launch procecss. */
 
-	EFI_PHYSICAL_ADDRESS buf_phys = 0;
+	EFI_PHYSICAL_ADDRESS buf_phys = 0x9479c000;
 	UINT64 buf_pages = 27 + cert_pages + 3;
 
-	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, buf_pages, &buf_phys);
+	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAddress, EfiLoaderData, buf_pages, &buf_phys);
 	if (EFI_ERROR(ret))
 		goto exit_tcb;
 
@@ -122,7 +122,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 	smc_data->version = 0x10;
 	smc_data->num = 0;
 	smc_data->pe_data = (uint64_t)tcb_data;
-	smc_data->pe_size = (uint64_t)tcb_size;
+	smc_data->pe_size = 4096 * tcb_pages;
 
 	struct sl_tz_data *tz_data = (struct sl_tz_data *)(buf + 4096 * 2);
 	SetMem(tz_data, 4096, 0);
@@ -157,7 +157,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 
 	/* Allocate (bogus) boot parameters for tcb. */
 
-	EFI_PHYSICAL_ADDRESS bootparams_phys = 0;
+	EFI_PHYSICAL_ADDRESS bootparams_phys = 0x9479c000;
 	UINT64 bootparams_pages = 3;
 
 	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, bootparams_pages, &bootparams_phys);
@@ -190,6 +190,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 
 	//tz_data->version = 2;
 	//tz_data->cert_offt = 2;
+	//smc_data->arg_size = tz_data->this_size = 0x10;
 
 	register_tz_logs();
 
@@ -260,8 +261,16 @@ exit_corrupted:
 	Print(L" Assume this system is in corrupted state!\n");
 	Print(L"===========================================\n");
 
+	Print(L" == av2: ");
+	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, SL_CMD_IS_AVAILABLE, 0);
+	Print(L"0x%x\n", smcret);
+
 	dump_hyp_logs();
 	dump_tz_logs();
+
+	/* Sanity check that SMC works */
+	uint64_t psci_version = smc(0x84000000, 0, 0, 0);
+	Print(L"PSCI version = 0x%x\n", psci_version);
 
 	return EFI_UNSUPPORTED;
 }
