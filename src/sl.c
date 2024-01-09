@@ -18,6 +18,8 @@
 #include "tzlog.h"
 #include "sl.h"
 
+#include "tinyfb.h"
+
 EFI_STATUS sl_get_cert_entry(UINT8 *tcb_data, UINT8 **data, UINT64 *size)
 {
 	PIMAGE_DOS_HEADER pe = (PIMAGE_DOS_HEADER)tcb_data;
@@ -56,7 +58,7 @@ static void dump_smc_params(struct sl_smc_params *dat)
 		dat->a, dat->b, dat->version, dat->num, dat->pe_data, dat->pe_size, dat->arg_data, dat->arg_size);
 }
 
-EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
+EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 {
 	EFI_STATUS ret = EFI_SUCCESS;
 	uint64_t smcret = 0;
@@ -197,6 +199,67 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 	//dump_hyp_logs();
 	//dump_tz_logs();
 	//dump_qhee_logs();
+
+/*
+	EFI_GUID gopGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
+	EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
+
+	ret = uefi_call_wrapper(BS->LocateProtocol, 3, &gopGuid, NULL, (void**)&gop);
+	if(EFI_ERROR(ret))
+		Print(L"Unable to locate GOP\n");
+
+	Print(L"Framebuffer address %x size %d, width %d height %d pixelsperline %d\n",
+			gop->Mode->FrameBufferBase,
+			gop->Mode->FrameBufferSize,
+			gop->Mode->Info->HorizontalResolution,
+			gop->Mode->Info->VerticalResolution,
+			gop->Mode->Info->PixelsPerScanLine
+	       );
+
+	uint32_t *fb = (uint32_t *)gop->Mode->FrameBufferBase; // 0x9bc00000
+	*fb = 0xFFFFFFFF;
+	put_hex(0x0123456789abcdef, &fb, 1920);
+
+	// =========================================================================================================
+	EFI_MEMORY_DESCRIPTOR MemoryMap[64];
+	UINTN MemoryMapSize = sizeof(MemoryMap);
+	UINTN MapKey = 0;
+	UINTN DescriptorSize;
+	UINT32 DescriptorVersion;
+
+	ret = uefi_call_wrapper(BS->GetMemoryMap, 6, &MemoryMapSize, MemoryMap, &MapKey, &DescriptorSize, &DescriptorSize);
+	put_hex(ret, &fb, 1920);
+	ret = uefi_call_wrapper(BS->ExitBootServices, 2, ImageHandle, MapKey);
+	put_hex(ret, &fb, 1920);
+
+	clear_dcache_range((uint64_t)tcb_data, 4096 * tcb_pages);
+	clear_dcache_range((uint64_t)buf, 4096 * buf_pages);
+	clear_dcache_range((uint64_t)bootparams, 4096 * bootparams_pages);
+
+	smc_data->num = SL_CMD_IS_AVAILABLE;
+	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
+
+	put_hex(smc_data->num, &fb, 1920);
+	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
+	put_hex(smcret, &fb, 1920);
+
+	smc_data->num = SL_CMD_AUTH;
+	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
+
+	put_hex(smc_data->num, &fb, 1920);
+	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
+	put_hex(smcret, &fb, 1920);
+
+	smc_data->num = SL_CMD_LAUNCH;
+	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
+
+	put_hex(smc_data->num, &fb, 1920);
+	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
+	put_hex(smcret, &fb, 1920);
+
+	while (1)
+		;
+*/
 
 	//goto exit_bp; // ===========================================================================================
 

@@ -45,7 +45,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	volume = GetVolume(ImageHandle);
 	file = FileOpen(volume, argv[1]);
 
-	ret = sl_bounce(file);
+	ret = sl_bounce(file, ImageHandle);
 	if (ret != EFI_SUCCESS)
 		Print(L"Bounce failed with %d\n", ret);
 

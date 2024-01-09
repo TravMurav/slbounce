@@ -47,6 +47,7 @@ void psci_off(void)
 void tb_func(struct sl_tb_data *tb_data)
 {
 	__asm__ volatile(
+		//"hvc 0x1\n\t"
 		"mov x0, #0x84000000\n\t"
 		"add x0, x0, #8\n\t"
 		"smc #0\n\t"
