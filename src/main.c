@@ -47,7 +47,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
 	ret = sl_bounce(file);
 	if (ret != EFI_SUCCESS)
-		Print(L"Bonce failed with %d\n", ret);
+		Print(L"Bounce failed with %d\n", ret);
 
 	Print(L"Running in EL=%d\n", read_currentel().el);
 	return ret;

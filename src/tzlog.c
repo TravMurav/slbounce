@@ -244,7 +244,7 @@ enum tzdbg_stats_type {
 
 static EFI_PHYSICAL_ADDRESS logs_phys;
 
-void register_tz_logs(void)
+void register_qhee_logs(void)
 {
 	EFI_STATUS ret;
 	UINT64 logs_pages = QSEE_LOG_BUF_SIZE / 4096 + 1;
@@ -279,8 +279,13 @@ void dump_tz_logs(void)
 	puts_skipmnl(log, diag_buf->ring_len);
 	Print(L"===================\n");
 
-	log = (char *)logs_phys;
-	Print(L"===== QHEE logs =====\n");
+}
+
+void dump_qhee_logs(void)
+{
+	char *log = (char *)logs_phys;
+
+	Print(L"==== QHEE logs ====\n");
 	puts_skipmnl(log, QSEE_LOG_BUF_SIZE);
 	Print(L"===================\n");
 }

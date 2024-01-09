@@ -65,9 +65,9 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 
 	UINT64 tcb_size = FileSize(tcblaunch);
 	UINT64 tcb_pages = tcb_size / 4096 + 1 + 3;
-	EFI_PHYSICAL_ADDRESS tcb_phys = 0x95000000;
+	EFI_PHYSICAL_ADDRESS tcb_phys = 0;
 
-	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateMaxAddress, EfiLoaderData, tcb_pages, &tcb_phys);
+	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, tcb_pages, &tcb_phys);
 	if (EFI_ERROR(ret))
 		goto exit;
 
@@ -90,10 +90,10 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 
 	/* Allocate a buffer for Secure Launch procecss. */
 
-	EFI_PHYSICAL_ADDRESS buf_phys = 0x9479c000;
+	EFI_PHYSICAL_ADDRESS buf_phys = 0; // 0x9479c000
 	UINT64 buf_pages = 27 + cert_pages + 3;
 
-	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAddress, EfiLoaderData, buf_pages, &buf_phys);
+	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, buf_pages, &buf_phys);
 	if (EFI_ERROR(ret))
 		goto exit_tcb;
 
@@ -157,14 +157,14 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 
 	/* Allocate (bogus) boot parameters for tcb. */
 
-	EFI_PHYSICAL_ADDRESS bootparams_phys = 0x9479c000;
+	EFI_PHYSICAL_ADDRESS bootparams_phys = 0;
 	UINT64 bootparams_pages = 3;
 
 	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, bootparams_pages, &bootparams_phys);
 	if (EFI_ERROR(ret))
 		goto exit_buf;
 
-	Print(L"Allocated %d pages at 0x%x\n", bootparams_pages, bootparams_phys);
+	Print(L"Allocated %d pages at 0x%x (bootparams)\n", bootparams_pages, bootparams_phys);
 
 	struct sl_boot_params *bootparams = (struct sl_boot_params *)bootparams_phys;
 	SetMem(bootparams, 4096 * bootparams_pages, 0xff);
@@ -192,10 +192,11 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 	//tz_data->cert_offt = 2;
 	//smc_data->arg_size = tz_data->this_size = 0x10;
 
-	register_tz_logs();
+	register_qhee_logs();
 
 	//dump_hyp_logs();
 	//dump_tz_logs();
+	//dump_qhee_logs();
 
 	//goto exit_bp; // ===========================================================================================
 
@@ -261,12 +262,13 @@ exit_corrupted:
 	Print(L" Assume this system is in corrupted state!\n");
 	Print(L"===========================================\n");
 
-	Print(L" == av2: ");
+	Print(L" == Available: ");
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, SL_CMD_IS_AVAILABLE, 0);
 	Print(L"0x%x\n", smcret);
 
 	dump_hyp_logs();
 	dump_tz_logs();
+	dump_qhee_logs();
 
 	/* Sanity check that SMC works */
 	uint64_t psci_version = smc(0x84000000, 0, 0, 0);
