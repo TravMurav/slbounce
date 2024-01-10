@@ -276,8 +276,12 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	smc_data->num = SL_CMD_IS_AVAILABLE;
 	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
 
+	//EFI_TPL OldTpl;
+
 	Print(L" == Available: ");
+	//OldTpl = uefi_call_wrapper(BS->RaiseTPL, 1, TPL_HIGH_LEVEL);
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
+	//uefi_call_wrapper(BS->RestoreTPL, 1, OldTpl);
 	Print(L"0x%x\n", smcret);
 	if (smcret)
 		goto exit_corrupted;
@@ -286,7 +290,9 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
 
 	Print(L" == Auth: ");
+	//OldTpl = uefi_call_wrapper(BS->RaiseTPL, 1, TPL_HIGH_LEVEL);
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
+	//uefi_call_wrapper(BS->RestoreTPL, 1, OldTpl);
 	Print(L"0x%x\n", smcret);
 	if (smcret)
 		goto exit_corrupted;
@@ -295,7 +301,9 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
 
 	Print(L" == Launch: ");
+	//OldTpl = uefi_call_wrapper(BS->RaiseTPL, 1, TPL_HIGH_LEVEL);
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
+	//uefi_call_wrapper(BS->RestoreTPL, 1, OldTpl);
 	Print(L"0x%x\n", smcret);
 	if (smcret)
 		goto exit_corrupted;

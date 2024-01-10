@@ -7,6 +7,7 @@
 #include <efilib.h>
 
 #include <sysreg/ctr_el0.h>
+#include <sysreg/daif.h>
 
 #include "sl.h"
 
@@ -34,6 +35,21 @@ uint64_t smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
 	);
 	return r0;
 }
+
+uint64_t _smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
+{
+	uint64_t ret;
+	union daif daif_bak = read_daif();
+
+	read_modify_write_daif( .d=0, .a=0, .i=1, .f=0 );
+
+	ret = _smc(x0, x1, x2, x3);
+
+	unsafe_write_daif(daif_bak);
+
+	return ret;
+}
+
 
 void psci_off(void)
 {
