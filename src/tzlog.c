@@ -285,6 +285,7 @@ void dump_qhee_logs(void)
 {
 	char *log = (char *)logs_phys;
 
+	clear_dcache_range(logs_phys, QSEE_LOG_BUF_SIZE);
 	Print(L"==== QHEE logs ====\n");
 	puts_skipmnl(log, QSEE_LOG_BUF_SIZE);
 	Print(L"===================\n");

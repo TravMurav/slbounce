@@ -190,9 +190,9 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	ASSERT(tz_data->this_size > tz_data->tcg_offt);
 	ASSERT(tz_data->this_size - tz_data->tcg_offt >= tz_data->tcg_size);
 
-	//tz_data->version = 2;
-	//tz_data->cert_offt = 2;
-	//smc_data->arg_size = tz_data->this_size = 0x10;
+	tz_data->version = 2;
+	tz_data->cert_offt = 2;
+	smc_data->arg_size = tz_data->this_size = 0x10;
 
 	register_qhee_logs();
 
@@ -276,7 +276,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	smc_data->num = SL_CMD_IS_AVAILABLE;
 	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
 
-	//EFI_TPL OldTpl;
+	EFI_TPL OldTpl;
 
 	Print(L" == Available: ");
 	//OldTpl = uefi_call_wrapper(BS->RaiseTPL, 1, TPL_HIGH_LEVEL);
@@ -301,7 +301,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
 
 	Print(L" == Launch: ");
-	//OldTpl = uefi_call_wrapper(BS->RaiseTPL, 1, TPL_HIGH_LEVEL);
+	OldTpl = uefi_call_wrapper(BS->RaiseTPL, 1, TPL_NOTIFY);
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
 	//uefi_call_wrapper(BS->RestoreTPL, 1, OldTpl);
 	Print(L"0x%x\n", smcret);
@@ -337,13 +337,19 @@ exit_corrupted:
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, SL_CMD_IS_AVAILABLE, 0);
 	Print(L"0x%x\n", smcret);
 
+	uefi_call_wrapper(BS->Stall, 1, 1000000);
+
 	dump_hyp_logs();
-	dump_tz_logs();
+	//dump_tz_logs();
 	dump_qhee_logs();
 
 	/* Sanity check that SMC works */
 	uint64_t psci_version = smc(0x84000000, 0, 0, 0);
 	Print(L"PSCI version = 0x%x\n", psci_version);
+
+
+	while(1)
+		;
 
 	return EFI_UNSUPPORTED;
 }
