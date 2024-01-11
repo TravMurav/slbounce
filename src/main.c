@@ -11,6 +11,7 @@
 #include "util.h"
 #include "arch.h"
 #include "sl.h"
+#include "tpm.h"
 
 EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 {
@@ -45,8 +46,14 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	volume = GetVolume(ImageHandle);
 	file = FileOpen(volume, argv[1]);
 
+	ret = tpm_init();
+	if (EFI_ERROR(ret)) {
+		Print(L"TPM init failed with %d\n", ret);
+		return ret;
+	}
+
 	ret = sl_bounce(file, ImageHandle);
-	if (ret != EFI_SUCCESS)
+	if (EFI_ERROR(ret))
 		Print(L"Bounce failed with %d\n", ret);
 
 	Print(L"Running in EL=%d\n", read_currentel().el);

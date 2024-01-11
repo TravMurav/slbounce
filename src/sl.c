@@ -337,7 +337,7 @@ exit_corrupted:
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, SL_CMD_IS_AVAILABLE, 0);
 	Print(L"0x%x\n", smcret);
 
-	uefi_call_wrapper(BS->Stall, 1, 1000000);
+	uefi_call_wrapper(BS->Stall, 1, 5000000);
 
 	dump_hyp_logs();
 	//dump_tz_logs();
