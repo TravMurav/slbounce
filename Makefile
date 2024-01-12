@@ -43,6 +43,7 @@ OBJS := \
 	$(OUT_DIR)/tzlog.o \
 	$(OUT_DIR)/tinyfb.o \
 	$(OUT_DIR)/tpm.o \
+	$(OUT_DIR)/tzapp.o \
 
 all: $(OUT_DIR) $(LIBEFI_A) $(LIBGNUEFI_A) $(OUT_DIR)/slbounce.efi
 

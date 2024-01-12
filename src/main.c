@@ -12,6 +12,7 @@
 #include "arch.h"
 #include "sl.h"
 #include "tpm.h"
+#include "tzapp.h"
 
 EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 {
@@ -51,7 +52,15 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 		Print(L"TPM init failed with %d\n", ret);
 		return ret;
 	}
+/*
+	ret = tzapp_poke();
+	if (EFI_ERROR(ret)) {
+		Print(L"MSSECAPP poke failed with %d\n", ret);
+		return ret;
+	}
 
+	return ret;
+*/
 	ret = sl_bounce(file, ImageHandle);
 	if (EFI_ERROR(ret))
 		Print(L"Bounce failed with %d\n", ret);

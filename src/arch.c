@@ -10,6 +10,7 @@
 #include <sysreg/daif.h>
 
 #include "sl.h"
+#include "arch.h"
 
 void clear_dcache_range(uint64_t start, uint64_t size)
 {
@@ -23,7 +24,7 @@ void clear_dcache_range(uint64_t start, uint64_t size)
 	}
 }
 
-uint64_t smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
+uint64_t _smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
 {
 	register uint64_t r0 __asm__("r0") = x0;
 	register uint64_t r1 __asm__("r1") = x1;
@@ -36,7 +37,34 @@ uint64_t smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
 	return r0;
 }
 
-uint64_t _smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
+uint64_t smc_ret(struct smc_ret *ret, uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3, uint64_t x4, uint64_t x5, uint64_t x6)
+{
+	register uint64_t r0 __asm__("r0") = x0;
+	register uint64_t r1 __asm__("r1") = x1;
+	register uint64_t r2 __asm__("r2") = x2;
+	register uint64_t r3 __asm__("r3") = x3;
+	register uint64_t r4 __asm__("r4") = x4;
+	register uint64_t r5 __asm__("r5") = x5;
+	register uint64_t r6 __asm__("r6") = x6;
+	__asm__ volatile(
+		"smc	#0\n"
+		: "+r" (r0)
+		:
+		: "r1", "r2", "r3", "r4", "r5", "r6"
+	);
+
+	ret->x0 = r0;
+	ret->x1 = r1;
+	ret->x2 = r2;
+	ret->x3 = r3;
+	ret->x4 = r4;
+	ret->x5 = r5;
+	ret->x6 = r6;
+
+	return r0;
+}
+
+uint64_t smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
 {
 	uint64_t ret;
 	union daif daif_bak = read_daif();
