@@ -47,12 +47,12 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	volume = GetVolume(ImageHandle);
 	file = FileOpen(volume, argv[1]);
 
+/*
 	ret = tpm_init();
 	if (EFI_ERROR(ret)) {
 		Print(L"TPM init failed with %d\n", ret);
 		return ret;
 	}
-/*
 	ret = tzapp_poke();
 	if (EFI_ERROR(ret)) {
 		Print(L"MSSECAPP poke failed with %d\n", ret);

@@ -58,6 +58,51 @@ static void dump_smc_params(struct sl_smc_params *dat)
 		dat->a, dat->b, dat->version, dat->num, dat->pe_data, dat->pe_size, dat->arg_data, dat->arg_size);
 }
 
+static int sl_reserve_dma_region()
+{
+	EFI_STATUS ret = EFI_SUCCESS;
+	uint64_t smcret = 0;
+	EFI_PHYSICAL_ADDRESS dummy_phys = 0, smc_phys = 0;
+
+	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, 1, &dummy_phys);
+	if (EFI_ERROR(ret))
+		return ret;
+	Print(L"Allocated %d pages at 0x%x (dummy protect))\n", 1, dummy_phys);
+
+	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, 2, &smc_phys);
+	if (EFI_ERROR(ret))
+		return ret;
+	Print(L"Allocated %d pages at 0x%x (protect smc))\n", 2, smc_phys);
+
+	struct sl_smc_dma_params *smc_data = (void*)smc_phys;
+	struct sl_smc_dma_entry *table =  (void*)(smc_phys+4096);
+	SetMem((UINT8*)smc_phys, 4096 * 2, 0);
+
+	smc_data->a = 1;
+	smc_data->b = 0;
+	smc_data->version = 0x10;
+	smc_data->num = SL_CMD_RESERVE_MEM;
+
+	smc_data->count = 1; // 1
+	smc_data->entry_size = 0x28;
+	smc_data->unk_2 = 2; // 2
+	smc_data->table_offt = 4096; // 0x38
+
+	table->phys = dummy_phys;
+	table->virt = dummy_phys;
+	table->size = 4096;
+	table->perm = 6;
+	table->flags = 1;
+
+	clear_dcache_range((uint64_t)smc_data, 4096 * 2);
+
+	Print(L" == Reserve: ");
+	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
+	Print(L"0x%x\n", smcret);
+
+	return smcret;
+}
+
 EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 {
 	EFI_STATUS ret = EFI_SUCCESS;
@@ -136,7 +181,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	UINT8 *buf_cert_data = (UINT8 *)tz_data + tz_data->cert_offt;
 	CopyMem(buf_cert_data, cert_data, cert_size);
 
-	tz_data->tcg_offt = tz_data->cert_offt + tz_data->cert_size;
+	tz_data->tcg_offt = tz_data->cert_offt + cert_pages;
 	tz_data->tcg_size = 4096 * 2;
 	tz_data->tcg_used = 0;
 	tz_data->tcg_ver = 2;
@@ -149,12 +194,18 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 
 	/* Set up return code path for when tcblaunch.exe fails to start */
 
-	tz_data->tb_entry_point = (uint64_t)tb_func;
-	tz_data->tb_virt = (((uint64_t)tb_func) / 4096 - 1) * 4096;
-	tz_data->tb_phys = tz_data->tb_virt;
-	tz_data->tb_size = 4096 * 2;
+	EFI_LOADED_IMAGE *image = NULL;
+	EFI_GUID lipGuid = EFI_LOADED_IMAGE_PROTOCOL_GUID;
+	ret = uefi_call_wrapper(BS->HandleProtocol, 3, ImageHandle, &lipGuid, (void **) &image);
+	if (EFI_ERROR(ret))
+		goto exit_buf;
 
-	Print(L"TB entrypoint is 0x%x, section is at 0x%x, size= 0x%x\n",
+	tz_data->tb_entry_point = (uint64_t)tb_func;
+	tz_data->tb_virt = (uint64_t)image->ImageBase;
+	tz_data->tb_phys = (uint64_t)image->ImageBase;
+	tz_data->tb_size = image->ImageSize;
+
+	Print(L"TB entrypoint is 0x%x, Image is at 0x%x, size= 0x%x\n",
 		tz_data->tb_entry_point, tz_data->tb_virt, tz_data->tb_size);
 
 	/* Allocate (bogus) boot parameters for tcb. */
@@ -180,6 +231,11 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	/* Do some sanity checks */
 
 	/* mssecapp.mbn */
+	ASSERT(smc_data->arg_data !=0);
+	ASSERT(smc_data->arg_size > 0x17);
+	ASSERT(smc_data->pe_size != 0);
+	ASSERT(smc_data->pe_data != 0);
+
 	ASSERT(tz_data->version == 1);
 	ASSERT(tz_data->cert_offt > 0x17);
 	ASSERT(tz_data->cert_size != 0);
@@ -190,9 +246,9 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	ASSERT(tz_data->this_size > tz_data->tcg_offt);
 	ASSERT(tz_data->this_size - tz_data->tcg_offt >= tz_data->tcg_size);
 
-	tz_data->version = 2;
-	tz_data->cert_offt = 2;
-	smc_data->arg_size = tz_data->this_size = 0x10;
+	//tz_data->version = 2;
+	//tz_data->cert_offt = 2;
+	//smc_data->arg_size = tz_data->this_size = 0x10;
 
 	register_qhee_logs();
 
@@ -278,6 +334,10 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 
 	EFI_TPL OldTpl;
 
+	smcret = sl_reserve_dma_region();
+	if (smcret)
+		goto exit_corrupted;
+
 	Print(L" == Available: ");
 	//OldTpl = uefi_call_wrapper(BS->RaiseTPL, 1, TPL_HIGH_LEVEL);
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
@@ -298,6 +358,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 		goto exit_corrupted;
 
 	smc_data->num = SL_CMD_LAUNCH;
+	smc_data->num = SL_CMD_UNMAP;
 	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
 
 	Print(L" == Launch: ");
@@ -305,7 +366,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
 	//uefi_call_wrapper(BS->RestoreTPL, 1, OldTpl);
 	Print(L"0x%x\n", smcret);
-	if (smcret)
+	//if (smcret)
 		goto exit_corrupted;
 
 	Print(L"Bounce is done. Cleaning up.\n");
