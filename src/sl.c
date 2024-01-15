@@ -18,6 +18,8 @@
 #include "tzlog.h"
 #include "sl.h"
 
+#include "smp.h"
+
 #include "tinyfb.h"
 
 EFI_STATUS sl_get_cert_entry(UINT8 *tcb_data, UINT8 **data, UINT64 *size)
@@ -256,7 +258,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	//dump_tz_logs();
 	//dump_qhee_logs();
 
-/*
+
 	EFI_GUID gopGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
 	EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
 
@@ -273,6 +275,9 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	       );
 
 	uint32_t *fb = (uint32_t *)gop->Mode->FrameBufferBase; // 0x9bc00000
+
+	SetMem(fb, (1920*4*64), 0);
+
 	*fb = 0xFFFFFFFF;
 	put_hex(0x0123456789abcdef, &fb, 1920);
 
@@ -287,6 +292,8 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	put_hex(ret, &fb, 1920);
 	ret = uefi_call_wrapper(BS->ExitBootServices, 2, ImageHandle, MapKey);
 	put_hex(ret, &fb, 1920);
+
+	smcret = spin_up_second_cpu();
 
 	clear_dcache_range((uint64_t)tcb_data, 4096 * tcb_pages);
 	clear_dcache_range((uint64_t)buf, 4096 * buf_pages);
@@ -315,13 +322,19 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 
 	while (1)
 		;
-*/
+
 
 	//goto exit_bp; // ===========================================================================================
 
 	/* Perform the SMC calls to launch the tcb with our data */
 
 	Print(L"Data creation is done. Trying to bounce...\n");
+
+	Print(L"Trying to boot second core! ret = ");
+	smcret = spin_up_second_cpu();
+	while(1)
+		;
+	Print(L"0x%x\n", smcret);
 
 	dump_smc_params(smc_data);
 
@@ -334,9 +347,9 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 
 	EFI_TPL OldTpl;
 
-	smcret = sl_reserve_dma_region();
-	if (smcret)
-		goto exit_corrupted;
+	//smcret = sl_reserve_dma_region();
+	//if (smcret)
+	//	goto exit_corrupted;
 
 	Print(L" == Available: ");
 	//OldTpl = uefi_call_wrapper(BS->RaiseTPL, 1, TPL_HIGH_LEVEL);
@@ -358,7 +371,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 		goto exit_corrupted;
 
 	smc_data->num = SL_CMD_LAUNCH;
-	smc_data->num = SL_CMD_UNMAP;
+	//smc_data->num = SL_CMD_UNMAP;
 	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
 
 	Print(L" == Launch: ");

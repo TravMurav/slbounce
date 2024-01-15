@@ -9,6 +9,9 @@
 #include <sysreg/ctr_el0.h>
 #include <sysreg/daif.h>
 
+#include <sysreg/cntp_ctl_el0.h>
+#include <sysreg/cntp_tval_el0.h>
+
 #include "sl.h"
 #include "arch.h"
 
@@ -71,7 +74,13 @@ uint64_t smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
 
 	read_modify_write_daif( .d=0, .a=0, .i=1, .f=0 );
 
+	// Wind up timer for a long delay so
+	// the smc gets interrupted if it hangs too long.
+	read_modify_write_cntp_ctl_el0( .enable=0 );
+	read_modify_write_cntp_tval_el0( .timervalue=19200000 ); // 1 second
+
 	ret = _smc(x0, x1, x2, x3);
+	read_modify_write_cntp_ctl_el0( .enable=1 );
 
 	unsafe_write_daif(daif_bak);
 

@@ -61,6 +61,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
 	return ret;
 */
+
 	ret = sl_bounce(file, ImageHandle);
 	if (EFI_ERROR(ret))
 		Print(L"Bounce failed with %d\n", ret);

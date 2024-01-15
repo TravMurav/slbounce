@@ -47,8 +47,9 @@ void put_hex(uint64_t val, uint32_t **fb, uint64_t stride)
 	int i;
 
 	for (i = 0; i < 16; ++i) {
-		put_nibble(val, fb, stride);
-		val >>= 4;
+		uint64_t nib = val >> 60;
+		put_nibble(nib, fb, stride);
+		val <<= 4;
 	}
 
 	*fb += FONT_W;

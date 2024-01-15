@@ -3,6 +3,7 @@ ARCH 		:= aarch64
 SUBSYSTEM 	:= 10
 CROSS_COMPILE 	:= aarch64-linux-gnu-
 
+AS             := $(CROSS_COMPILE)as
 CC             := $(CROSS_COMPILE)gcc
 LD             := $(CROSS_COMPILE)ld
 OBJCOPY        := $(CROSS_COMPILE)objcopy
@@ -18,7 +19,8 @@ CFLAGS += \
 	-I$(GNUEFI_DIR)/inc/ -I$(GNUEFI_DIR)/inc/$(ARCH) -I$(GNUEFI_DIR)/inc/protocol \
 	-I$(SYSREG_INC) \
 	-fpic -fshort-wchar -fno-stack-protector -ffreestanding \
-	-DCONFIG_$(ARCH) -D__MAKEWITH_GNUEFI -DGNU_EFI_USE_MS_ABI
+	-DCONFIG_$(ARCH) -D__MAKEWITH_GNUEFI -DGNU_EFI_USE_MS_ABI \
+	-mstrict-align
 
 LDFLAGS += \
 	-Wl,--no-wchar-size-warning -Wl,--defsym=EFI_SUBSYSTEM=$(SUBSYSTEM) \
@@ -44,6 +46,8 @@ OBJS := \
 	$(OUT_DIR)/tinyfb.o \
 	$(OUT_DIR)/tpm.o \
 	$(OUT_DIR)/tzapp.o \
+	$(OUT_DIR)/smp.o \
+	$(OUT_DIR)/smp_entry.o \
 
 all: $(OUT_DIR) $(LIBEFI_A) $(LIBGNUEFI_A) $(OUT_DIR)/slbounce.efi
 
@@ -74,6 +78,10 @@ $(OUT_DIR)/%.efi: $(OUT_DIR)/%.so
 $(OUT_DIR)/%.o: src/%.c
 	@echo [ CC  ] $$(basename $@)
 	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(OUT_DIR)/%.o: src/%.s
+	@echo [ ASM ] $$(basename $@)
+	@$(AS) -c $< -o $@
 
 .PHONY: clean
 clean:
