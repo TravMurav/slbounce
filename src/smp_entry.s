@@ -77,6 +77,26 @@ halt:
 	b	halt
 
 
+.global _asm_tb_entry
+_asm_tb_entry:
+	mov	x20, x0			// x0 contains struct address, save.
+	hvc	0x1
+
+	/* disable mmu */
+	mrs	x0, sctlr_el2
+	mov	x1, #~0b1000000000101
+	and	x0, x0, x1
+	msr	sctlr_el2, x0
+	isb
+
+	msr	daifset, #0b1111
+	isb
+
+	msr	hcr_el2, xzr
+	msr	vbar_el2, xzr
+
+	b _second_cpu_start
+
 
 /*
  * Arguments:

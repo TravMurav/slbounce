@@ -57,6 +57,39 @@ EFI_STATUS sl_get_cert_entry(UINT8 *tcb_data, UINT8 **data, UINT64 *size)
 	return EFI_SUCCESS;
 }
 
+EFI_STATUS sl_load_pe(UINT8 *load_addr, UINT64 load_size, PIMAGE_DOS_HEADER pe, UINT64 pe_size)
+{
+	if (pe->e_magic != IMAGE_DOS_SIGNATURE)
+		return EFI_INVALID_PARAMETER;
+
+	PIMAGE_NT_HEADERS64 nt = (PIMAGE_NT_HEADERS64)((UINT8 *)pe + pe->e_lfanew);
+
+	if (nt->Signature != IMAGE_NT_SIGNATURE)
+		return EFI_INVALID_PARAMETER;
+
+	if (nt->OptionalHeader.Magic != 0x20b)
+		return EFI_INVALID_PARAMETER;
+
+	SetMem(load_addr, load_size, 0);
+
+	CopyMem(load_addr, pe, 0x400); // Header
+
+	PIMAGE_SECTION_HEADER headers = (UINT8*)pe + 0x1e8; // FIXME don't hardcode this
+	UINT64 header_count = nt->FileHeader.NumberOfSections;
+
+	// FIXME this should probably handle errors...
+	for (int i = 0; i < header_count; ++i) {
+		Print(L"Loading section '%a'\n", headers[i].Name);
+		ASSERT(headers[i].VirtualAddress + headers[i].SizeOfRawData < load_size);
+
+		CopyMem(load_addr + headers[i].VirtualAddress,
+			(UINT8*)pe + headers[i].PointerToRawData,
+			headers[i].SizeOfRawData); // I hope rawdata size is correct, this is how much is hashed...
+	}
+
+	return EFI_SUCCESS;
+}
+
 static void dump_smc_params(struct sl_smc_params *dat)
 {
 	Print(L"SMC Params: [%d/%d/0x%x] id=%d | pe: 0x%x (0x%x b) | arg: 0x%x (0x%x b)\n",
@@ -116,7 +149,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	/* Allocate and load the tcblaunch.exe file. */
 
 	UINT64 tcb_size = FileSize(tcblaunch);
-	UINT64 tcb_pages = (tcb_size / 4096) + 1 + 128;
+	UINT64 tcb_pages = 256; // FIXME: don't hardcode...
 	EFI_PHYSICAL_ADDRESS tcb_phys = 0;
 
 	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, tcb_pages, &tcb_phys);
@@ -129,17 +162,33 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 
 	SetMem(tcb_data, 4096 * tcb_pages, 0);
 
-	UINT64 read_tcb_size = FileRead(tcblaunch, tcb_data, tcb_size);
+	UINT8 *tcb_tmp_file = 0;
+
+	ret = uefi_call_wrapper(BS->AllocatePool, 3, EfiLoaderData, tcb_size, &tcb_tmp_file);
+	if (EFI_ERROR(ret)) {
+		Print(L"Can't allocate pool\n");
+		goto exit_tcb;
+	}
+
+	UINT64 read_tcb_size = FileRead(tcblaunch, tcb_tmp_file, tcb_size);
 	ASSERT(read_tcb_size == tcb_size);
 
-	/* Extract the certificate/signature section address. */
+	/* Load the PE into memory */
+	ret = sl_load_pe(tcb_data, tcb_pages * 4096, tcb_tmp_file, tcb_size);
+	if (EFI_ERROR(ret)) {
+		Print(L"Can't load PE\n");
+		goto exit_tcb;
+	}
 
+	/* Extract the certificate/signature section address. */
 	UINT8 *cert_data;
 	UINT64 cert_size;
 
-	ret = sl_get_cert_entry(tcb_data, &cert_data, &cert_size);
-	if (EFI_ERROR(ret))
+	ret = sl_get_cert_entry(tcb_tmp_file, &cert_data, &cert_size);
+	if (EFI_ERROR(ret)) {
+		Print(L"Can't get cert pointers\n");
 		goto exit_tcb;
+	}
 
 	UINT64 cert_pages = cert_size / 4096 + 1;
 
@@ -186,12 +235,11 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	tz_data->cert_offt = 4096 * 25;
 	tz_data->cert_size = cert_size;
 
-	UINT8 *buf_cert_data = (UINT8 *)tz_data + tz_data->cert_offt;
+	UINT8 *buf_cert_data = (UINT8*)tz_data + tz_data->cert_offt;
 	CopyMem(buf_cert_data, cert_data, cert_size);
 
-	/* We probably need to nuke the cert from the original PE since it
-	 * may otherwise be located over sections that should be empty. I hope at least... */
-	SetMem(cert_data, cert_size, 0);
+	uefi_call_wrapper(BS->FreePool, 1, tcb_tmp_file); // Don't need the raw pe file anymore...
+
 
 	tz_data->tcg_offt = tz_data->cert_offt + cert_pages;
 	tz_data->tcg_size = 4096 * 2;
@@ -212,7 +260,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	if (EFI_ERROR(ret))
 		goto exit_buf;
 
-	tz_data->tb_entry_point = (uint64_t)tb_func;
+	tz_data->tb_entry_point = (uint64_t)_asm_tb_entry;
 	tz_data->tb_virt = (uint64_t)image->ImageBase;
 	tz_data->tb_phys = (uint64_t)image->ImageBase;
 	tz_data->tb_size = image->ImageSize;
@@ -271,6 +319,8 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	//tz_data->cert_offt = 2;
 	//smc_data->arg_size = tz_data->this_size = 0x10;
 
+	//tz_data->tcg_size = 0x15;
+
 	//pe->e_csum = 0x1;
 	//nt->FileHeader.NumberOfSections = 8;
 
@@ -315,7 +365,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	ret = uefi_call_wrapper(BS->ExitBootServices, 2, ImageHandle, MapKey);
 	put_hex(ret, &fb, 1920);
 
-	smcret = spin_up_second_cpu();
+	//smcret = spin_up_second_cpu();
 
 	clear_dcache_range((uint64_t)tcb_data, 4096 * tcb_pages);
 	clear_dcache_range((uint64_t)buf, 4096 * buf_pages);
@@ -407,19 +457,13 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	Print(L"Bounce is done. Cleaning up.\n");
 
 exit_bp:
-	ret = uefi_call_wrapper(BS->FreePages, 2, bootparams_phys, bootparams_pages);
-	if (EFI_ERROR(ret))
-		return ret;
+	uefi_call_wrapper(BS->FreePages, 2, bootparams_phys, bootparams_pages);
 
 exit_buf:
-	ret = uefi_call_wrapper(BS->FreePages, 2, buf_phys, buf_pages);
-	if (EFI_ERROR(ret))
-		return ret;
+	uefi_call_wrapper(BS->FreePages, 2, buf_phys, buf_pages);
 
 exit_tcb:
-	ret = uefi_call_wrapper(BS->FreePages, 2, tcb_phys, tcb_pages);
-	if (EFI_ERROR(ret))
-		return ret;
+	uefi_call_wrapper(BS->FreePages, 2, tcb_phys, tcb_pages);
 exit:
 	return ret;
 
