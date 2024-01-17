@@ -51,7 +51,8 @@ EFI_STATUS sl_get_cert_entry(UINT8 *tcb_data, UINT8 **data, UINT64 *size)
 	if (cert->wRevision != 0x200 || cert->wCertificateType != 2)
 		return EFI_INVALID_PARAMETER;
 
-	//cert->wRevision = 0x201;
+	//cert->wRevision = 0xDEAD;
+	//cert[1].wRevision = 0xDEAD;
 
 	return EFI_SUCCESS;
 }
@@ -115,7 +116,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	/* Allocate and load the tcblaunch.exe file. */
 
 	UINT64 tcb_size = FileSize(tcblaunch);
-	UINT64 tcb_pages = tcb_size / 4096 + 1 + 3;
+	UINT64 tcb_pages = (tcb_size / 4096) + 1 + 128;
 	EFI_PHYSICAL_ADDRESS tcb_phys = 0;
 
 	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, tcb_pages, &tcb_phys);
@@ -126,7 +127,10 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 
 	UINT8 *tcb_data = (UINT8 *)tcb_phys;
 
-	FileRead(tcblaunch, tcb_data, tcb_size);
+	SetMem(tcb_data, 4096 * tcb_pages, 0);
+
+	UINT64 read_tcb_size = FileRead(tcblaunch, tcb_data, tcb_size);
+	ASSERT(read_tcb_size == tcb_size);
 
 	/* Extract the certificate/signature section address. */
 
@@ -185,6 +189,10 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	UINT8 *buf_cert_data = (UINT8 *)tz_data + tz_data->cert_offt;
 	CopyMem(buf_cert_data, cert_data, cert_size);
 
+	/* We probably need to nuke the cert from the original PE since it
+	 * may otherwise be located over sections that should be empty. I hope at least... */
+	SetMem(cert_data, cert_size, 0);
+
 	tz_data->tcg_offt = tz_data->cert_offt + cert_pages;
 	tz_data->tcg_size = 4096 * 2;
 	tz_data->tcg_used = 0;
@@ -237,8 +245,15 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	/* mssecapp.mbn */
 	ASSERT(smc_data->arg_data !=0);
 	ASSERT(smc_data->arg_size > 0x17);
-	ASSERT(smc_data->pe_size != 0);
 	ASSERT(smc_data->pe_data != 0);
+	ASSERT(smc_data->pe_size != 0);
+
+	PIMAGE_DOS_HEADER pe = (PIMAGE_DOS_HEADER)smc_data->pe_data;
+	ASSERT(pe->e_magic == IMAGE_DOS_SIGNATURE);
+
+	PIMAGE_NT_HEADERS64 nt = (PIMAGE_NT_HEADERS64)((UINT8 *)pe + pe->e_lfanew);
+	ASSERT(nt->Signature == IMAGE_NT_SIGNATURE);
+	ASSERT(nt->OptionalHeader.Magic == 0x20b);
 
 	ASSERT(tz_data->version == 1);
 	ASSERT(tz_data->cert_offt > 0x17);
@@ -250,9 +265,14 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	ASSERT(tz_data->this_size > tz_data->tcg_offt);
 	ASSERT(tz_data->this_size - tz_data->tcg_offt >= tz_data->tcg_size);
 
+	//goto exit_bp; // <===== FIXME ======================
+
 	//tz_data->version = 2;
 	//tz_data->cert_offt = 2;
 	//smc_data->arg_size = tz_data->this_size = 0x10;
+
+	//pe->e_csum = 0x1;
+	//nt->FileHeader.NumberOfSections = 8;
 
 	register_qhee_logs();
 
