@@ -51,6 +51,8 @@ EFI_STATUS sl_get_cert_entry(UINT8 *tcb_data, UINT8 **data, UINT64 *size)
 	if (cert->wRevision != 0x200 || cert->wCertificateType != 2)
 		return EFI_INVALID_PARAMETER;
 
+	//cert->wRevision = 0x201;
+
 	return EFI_SUCCESS;
 }
 
@@ -276,7 +278,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 
 	uint32_t *fb = (uint32_t *)gop->Mode->FrameBufferBase; // 0x9bc00000
 
-	SetMem(fb, (1920*4*64), 0);
+	SetMem(fb, (1920*4*1000), 0);
 
 	*fb = 0xFFFFFFFF;
 	put_hex(0x0123456789abcdef, &fb, 1920);
