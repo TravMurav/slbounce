@@ -50,19 +50,33 @@ _second_cpu_start:
 
 	mov	x0, #0x20000
 	mov	x0, #0xc50
+	mov	x0, #0x330
 	bl	delay_count
 
 	mov	x0, #'l'
 	bl	put_char
 
+rewrite_log:
 	mov	x7, FB_BASE
 	add	x7, x7, #(FB_STRIDE * 32)
+
+
+	movz	x0, #0xaa00, lsl #0	// HYP_LOG_BASE = 0x801fa000
+	movk	x0, #0x801f, lsl #16
+	mov	x1, (HYP_LOG_SIZE - 0xa00)
+	bl	dump_hyp_log
+
+	mov	x7, FB_BASE
+	add	x7, x7, #(FB_STRIDE * 32)
+	add	x7, x7, #(FB_STRIDE / 2)
 
 
 	movz	x0, #0xa000, lsl #0	// HYP_LOG_BASE = 0x801fa000
 	movk	x0, #0x801f, lsl #16
 	mov	x1, (HYP_LOG_SIZE)
 	bl	dump_hyp_log
+
+	b	rewrite_log
 
 	b	count_forever
 	b	halt
@@ -84,10 +98,13 @@ halt:
 
 .global _asm_tb_entry
 _asm_tb_entry:
-	mov	x20, x0			// x0 contains struct address, save.
-	hvc	0x1
+	//mov	x20, x0			// x0 contains struct address, save.
+	//hvc	0x1
+	mov	x0, #0x84000000
+	add	x0, x0, #0x8
+	smc	0x0
 
-	b	psci_off
+	b	halt
 
 	/* disable mmu */
 	mrs	x0, sctlr_el2
@@ -103,6 +120,12 @@ _asm_tb_entry:
 	msr	vbar_el2, xzr
 
 	b _second_cpu_start
+
+
+psci_off:
+	mov	x0, #0x84000000
+	add	x0, x0, #0x8
+	smc	0x0
 
 
 /*
@@ -339,12 +362,6 @@ dhl_next:
 
 	mov	lr, x15
 	ret
-
-
-psci_off:
-	mov	x0, #0x84000000
-	add	x0, x0, #0x8
-	smc	0x0
 
 
 .data

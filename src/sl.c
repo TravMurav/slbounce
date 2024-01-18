@@ -195,7 +195,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	/* Allocate a buffer for Secure Launch procecss. */
 
 	EFI_PHYSICAL_ADDRESS buf_phys = 0; // 0x9479c000
-	UINT64 buf_pages = 27 + cert_pages + 3;
+	UINT64 buf_pages = 27 + cert_pages + 16 + 3;
 
 	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, buf_pages, &buf_phys);
 	if (EFI_ERROR(ret))
@@ -250,7 +250,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	tz_data->this_phys = (uint64_t)tz_data;
 
 	tz_data->crt_offt = 4096 * 1;
-	tz_data->crt_pages_cnt = 24;
+	tz_data->crt_pages_cnt = 24; // 24
 
 	/* Set up return code path for when tcblaunch.exe fails to start */
 
@@ -264,6 +264,10 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	tz_data->tb_virt = (uint64_t)image->ImageBase;
 	tz_data->tb_phys = (uint64_t)image->ImageBase;
 	tz_data->tb_size = image->ImageSize;
+
+	tz_data->tb_virt = (tz_data->tb_entry_point & 0xfffffffffffff000);
+	tz_data->tb_phys = tz_data->tb_virt;
+	tz_data->tb_size = 4096 * 2;
 
 	Print(L"TB entrypoint is 0x%x, Image is at 0x%x, size= 0x%x\n",
 		tz_data->tb_entry_point, tz_data->tb_virt, tz_data->tb_size);
