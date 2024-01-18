@@ -149,7 +149,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	/* Allocate and load the tcblaunch.exe file. */
 
 	UINT64 tcb_size = FileSize(tcblaunch);
-	UINT64 tcb_pages = 256; // FIXME: don't hardcode...
+	UINT64 tcb_pages = 512; // FIXME: don't hardcode...
 	EFI_PHYSICAL_ADDRESS tcb_phys = 0;
 
 	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, tcb_pages, &tcb_phys);

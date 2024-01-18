@@ -49,6 +49,7 @@ _second_cpu_start:
 	bl	put_char
 
 	mov	x0, #0x20000
+	mov	x0, #0xc50
 	bl	delay_count
 
 	mov	x0, #'l'
@@ -57,6 +58,10 @@ _second_cpu_start:
 	mov	x7, FB_BASE
 	add	x7, x7, #(FB_STRIDE * 32)
 
+
+	movz	x0, #0xa000, lsl #0	// HYP_LOG_BASE = 0x801fa000
+	movk	x0, #0x801f, lsl #16
+	mov	x1, (HYP_LOG_SIZE)
 	bl	dump_hyp_log
 
 	b	count_forever
@@ -81,6 +86,8 @@ halt:
 _asm_tb_entry:
 	mov	x20, x0			// x0 contains struct address, save.
 	hvc	0x1
+
+	b	psci_off
 
 	/* disable mmu */
 	mrs	x0, sctlr_el2
@@ -270,6 +277,8 @@ pc_col:
 
 /*
  * Arguments:
+	x0: log base
+	x1: log size
  * 	x7: current fb base (updated)
  *
  * Clobbers:
@@ -284,9 +293,8 @@ pc_col:
 dump_hyp_log:
 	mov	x15, lr
 
-	mov	x16, HYP_LOG_SIZE
-	movz	x17, #0xa000, lsl #0	// HYP_LOG_BASE = 0x801fa000
-	movk	x17, #0x801f, lsl #16
+	mov	x17, x0
+	mov	x16, x1
 
 	//mov	x16, #10
 	//adr	x17, test_string
@@ -299,6 +307,10 @@ dhl_loop:
 
 	mov	x14, #'\n'
 	cmp	x0, x14
+	b.eq	dhl_nl		// newline
+
+	mov	x14, #200
+	cmp	x18, x14
 	b.eq	dhl_nl		// newline
 
 	mov	x14, #'\r'
