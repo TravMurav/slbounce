@@ -88,8 +88,8 @@ struct sl_tz_data {
 	uint64_t this_size;		// total alloc size
 	uint64_t this_phys;
 
-	uint64_t crt_offt;		// 0x1000
-	uint64_t crt_pages_cnt;		// 0x18
+	uint32_t crt_offt;		// 0x1000
+	uint32_t crt_pages_cnt;		// 0x18
 
 	uint64_t boot_params;
 	uint32_t boot_params_size;
@@ -105,6 +105,7 @@ struct sl_tz_data {
 
 	struct sl_dma_range dma_ranges[2];
 	uint32_t dma_ranges_cnt;
+	uint32_t pad3;
 } __PACKED;
 
 #define SL_BOOT_PARAMS_SIG 0x50504120544f4f42

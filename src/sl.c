@@ -195,7 +195,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	/* Allocate a buffer for Secure Launch procecss. */
 
 	EFI_PHYSICAL_ADDRESS buf_phys = 0; // 0x9479c000
-	UINT64 buf_pages = 27 + cert_pages + 16 + 3;
+	UINT64 buf_pages = 27 + cert_pages + 3;
 
 	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, buf_pages, &buf_phys);
 	if (EFI_ERROR(ret))
@@ -241,7 +241,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	uefi_call_wrapper(BS->FreePool, 1, tcb_tmp_file); // Don't need the raw pe file anymore...
 
 
-	tz_data->tcg_offt = tz_data->cert_offt + cert_pages;
+	tz_data->tcg_offt = tz_data->cert_offt + cert_size;
 	tz_data->tcg_size = 4096 * 2;
 	tz_data->tcg_used = 0;
 	tz_data->tcg_ver = 2;
@@ -316,6 +316,22 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	ASSERT(tz_data->tcg_size != 0);
 	ASSERT(tz_data->this_size > tz_data->tcg_offt);
 	ASSERT(tz_data->this_size - tz_data->tcg_offt >= tz_data->tcg_size);
+
+	/* Leftover from real SL */
+	ASSERT(sizeof(struct sl_tz_data) == 0xc8);
+	ASSERT(tz_data->cert_offt == 0x19000);
+	ASSERT(tz_data->cert_size == 0x4030);
+	ASSERT(tz_data->tcg_offt == 0x01d030);
+	ASSERT(tz_data->tcg_size == 0x2000);
+	ASSERT(tz_data->tcg_used == 0x0);
+	ASSERT(tz_data->tcg_ver == 0x2);
+	ASSERT(tz_data->this_size == 0x20000);
+	ASSERT(tz_data->crt_offt == 0x1000);
+	ASSERT(tz_data->crt_pages_cnt == 0x18);
+	ASSERT(tz_data->boot_params_size == 0x3000);
+
+
+
 
 	//goto exit_bp; // <===== FIXME ======================
 
