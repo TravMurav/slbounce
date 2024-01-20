@@ -331,8 +331,6 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	ASSERT(tz_data->boot_params_size == 0x3000);
 
 
-
-
 	//goto exit_bp; // <===== FIXME ======================
 
 	//tz_data->version = 2;
@@ -344,7 +342,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	//pe->e_csum = 0x1;
 	//nt->FileHeader.NumberOfSections = 8;
 
-	register_qhee_logs();
+	//register_qhee_logs();
 
 	//dump_hyp_logs();
 	//dump_tz_logs();
@@ -371,7 +369,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	SetMem(fb, (1920*4*1000), 0);
 
 	*fb = 0xFFFFFFFF;
-	put_hex(0x0123456789abcdef, &fb, 1920);
+	put_hex(0x0123456789abcdef, &fb, gop->Mode->Info->HorizontalResolution);
 
 	// =========================================================================================================
 	EFI_MEMORY_DESCRIPTOR MemoryMap[64];
@@ -381,9 +379,9 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	UINT32 DescriptorVersion;
 
 	ret = uefi_call_wrapper(BS->GetMemoryMap, 6, &MemoryMapSize, MemoryMap, &MapKey, &DescriptorSize, &DescriptorSize);
-	put_hex(ret, &fb, 1920);
+	put_hex(ret, &fb, gop->Mode->Info->HorizontalResolution);
 	ret = uefi_call_wrapper(BS->ExitBootServices, 2, ImageHandle, MapKey);
-	put_hex(ret, &fb, 1920);
+	put_hex(ret, &fb, gop->Mode->Info->HorizontalResolution);
 
 	//smcret = spin_up_second_cpu();
 
@@ -394,23 +392,23 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	smc_data->num = SL_CMD_IS_AVAILABLE;
 	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
 
-	put_hex(smc_data->num, &fb, 1920);
+	put_hex(smc_data->num, &fb, gop->Mode->Info->HorizontalResolution);
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
-	put_hex(smcret, &fb, 1920);
+	put_hex(smcret, &fb, gop->Mode->Info->HorizontalResolution);
 
 	smc_data->num = SL_CMD_AUTH;
 	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
 
-	put_hex(smc_data->num, &fb, 1920);
+	put_hex(smc_data->num, &fb, gop->Mode->Info->HorizontalResolution);
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
-	put_hex(smcret, &fb, 1920);
+	put_hex(smcret, &fb, gop->Mode->Info->HorizontalResolution);
 
 	smc_data->num = SL_CMD_LAUNCH;
 	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
 
-	put_hex(smc_data->num, &fb, 1920);
+	put_hex(smc_data->num, &fb, gop->Mode->Info->HorizontalResolution);
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
-	put_hex(smcret, &fb, 1920);
+	put_hex(smcret, &fb, gop->Mode->Info->HorizontalResolution);
 
 	while (1)
 		;
