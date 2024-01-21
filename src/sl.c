@@ -333,6 +333,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 
 	//goto exit_bp; // <===== FIXME ======================
 
+
 	//tz_data->version = 2;
 	//tz_data->cert_offt = 2;
 	//smc_data->arg_size = tz_data->this_size = 0x10;
@@ -348,7 +349,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	//dump_tz_logs();
 	//dump_qhee_logs();
 
-
+/*
 	EFI_GUID gopGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
 	EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
 
@@ -410,21 +411,28 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
 	put_hex(smcret, &fb, gop->Mode->Info->HorizontalResolution);
 
+	smc_data->num = 0;
+	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
+
+	put_hex(smc_data->num, &fb, gop->Mode->Info->HorizontalResolution);
+	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
+	put_hex(smcret, &fb, gop->Mode->Info->HorizontalResolution);
+
 	while (1)
 		;
 
-
+*/
 	//goto exit_bp; // ===========================================================================================
 
 	/* Perform the SMC calls to launch the tcb with our data */
 
 	Print(L"Data creation is done. Trying to bounce...\n");
 
-	Print(L"Trying to boot second core! ret = ");
-	smcret = spin_up_second_cpu();
-	while(1)
-		;
-	Print(L"0x%x\n", smcret);
+	//Print(L"Trying to boot second core! ret = ");
+	//smcret = spin_up_second_cpu();
+	//while(1)
+	//	;
+	//Print(L"0x%x\n", smcret);
 
 	dump_smc_params(smc_data);
 
@@ -465,7 +473,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
 
 	Print(L" == Launch: ");
-	OldTpl = uefi_call_wrapper(BS->RaiseTPL, 1, TPL_NOTIFY);
+	//OldTpl = uefi_call_wrapper(BS->RaiseTPL, 1, TPL_NOTIFY);
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
 	//uefi_call_wrapper(BS->RestoreTPL, 1, OldTpl);
 	Print(L"0x%x\n", smcret);
@@ -495,11 +503,11 @@ exit_corrupted:
 	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, SL_CMD_IS_AVAILABLE, 0);
 	Print(L"0x%x\n", smcret);
 
-	uefi_call_wrapper(BS->Stall, 1, 5000000);
+	//uefi_call_wrapper(BS->Stall, 1, 5000000);
 
-	dump_hyp_logs();
+	//dump_hyp_logs();
 	//dump_tz_logs();
-	dump_qhee_logs();
+	//dump_qhee_logs();
 
 	/* Sanity check that SMC works */
 	uint64_t psci_version = smc(0x84000000, 0, 0, 0);

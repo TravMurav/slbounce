@@ -20,7 +20,7 @@ _asm_tb_entry:
 	msr	hcr_el2, xzr
 	msr	vbar_el2, xzr
 
-	b	boot_linux
+	//b	boot_linux
 
 	b	psci_off
 

@@ -24,6 +24,13 @@ struct tzlog sc7180_tzlog = {
 	.hyp_size_offt = 0x414,
 };
 
+struct tzlog sc8280_tzlog = {
+	.base = 0x146bf720, // FIXME: guess based on hyp entry
+	.size = 0x3000,
+	.hyp_addr_offt = 0x410,
+	.hyp_size_offt = 0x414,
+};
+
 struct tzlog *soc_tzlog = &sc7180_tzlog;
 
 static void puts_skipmnl(char *log, uint64_t log_size)
