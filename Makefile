@@ -42,12 +42,7 @@ OBJS := \
 	$(OUT_DIR)/util.o \
 	$(OUT_DIR)/arch.o \
 	$(OUT_DIR)/sl.o \
-	$(OUT_DIR)/tzlog.o \
-	$(OUT_DIR)/tinyfb.o \
-	$(OUT_DIR)/tpm.o \
-	$(OUT_DIR)/tzapp.o \
-	$(OUT_DIR)/smp.o \
-	$(OUT_DIR)/smp_entry.o \
+	$(OUT_DIR)/trans.o \
 
 all: $(OUT_DIR) $(LIBEFI_A) $(LIBGNUEFI_A) $(OUT_DIR)/slbounce.efi
 

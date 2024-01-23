@@ -13,7 +13,7 @@ enum sl_cmd {
 	SL_CMD_AUTH		= 2,
 	SL_CMD_RESERVE_MEM	= 3,
 	SL_CMD_LAUNCH		= 4,
-	SL_CMD_UNMAP		= 5,
+	SL_CMD_UNMAP_ALL	= 5,
 };
 
 struct sl_smc_params {
@@ -27,36 +27,6 @@ struct sl_smc_params {
 	uint64_t pe_size;
 	uint64_t arg_data;
 	uint64_t arg_size;
-
-	uint64_t nosb_entry_point;
-} __PACKED;
-
-struct sl_smc_dma_entry {
-	uint64_t phys;
-	uint64_t virt;
-	uint64_t size;
-	uint32_t perm;
-	uint32_t pad;
-	uint64_t flags;
-} __PACKED;
-
-
-struct sl_smc_dma_params {
-	uint16_t a;			// 1
-	uint16_t b;			// 0
-	uint32_t version;		// 0x10
-	uint32_t num;			// id (1, 2, 4)
-	uint32_t pad;			// 0
-
-	uint32_t count;			// 1
-	uint32_t entry_size;		// 0x28
-	uint32_t unk_2;			// 2
-	uint32_t pad2;
-	uint64_t table_offt;		// 0x28
-	uint64_t pad3;
-	uint64_t pad4;
-
-	struct sl_smc_dma_entry table;
 } __PACKED;
 
 struct sl_dma_range {
@@ -108,7 +78,7 @@ struct sl_tz_data {
 	uint32_t pad3;
 } __PACKED;
 
-#define SL_BOOT_PARAMS_SIG 0x50504120544f4f42
+#define SL_BOOT_PARAMS_SIG 0x50504120544f4f42	// 'BOOT APP'
 
 /*
  * Based on ReactOS _BOOT_APPLICATION_PARAMETER_BLOCK

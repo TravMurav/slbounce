@@ -27,7 +27,7 @@ void clear_dcache_range(uint64_t start, uint64_t size)
 	}
 }
 
-uint64_t _smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
+static uint64_t _smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
 {
 	register uint64_t r0 __asm__("r0") = x0;
 	register uint64_t r1 __asm__("r1") = x1;
@@ -40,67 +40,32 @@ uint64_t _smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
 	return r0;
 }
 
-uint64_t smc_ret(struct smc_ret *ret, uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3, uint64_t x4, uint64_t x5, uint64_t x6)
-{
-	register uint64_t r0 __asm__("r0") = x0;
-	register uint64_t r1 __asm__("r1") = x1;
-	register uint64_t r2 __asm__("r2") = x2;
-	register uint64_t r3 __asm__("r3") = x3;
-	register uint64_t r4 __asm__("r4") = x4;
-	register uint64_t r5 __asm__("r5") = x5;
-	register uint64_t r6 __asm__("r6") = x6;
-	__asm__ volatile(
-		"smc	#0\n"
-		: "+r" (r0)
-		:
-		: "r1", "r2", "r3", "r4", "r5", "r6"
-	);
-
-	ret->x0 = r0;
-	ret->x1 = r1;
-	ret->x2 = r2;
-	ret->x3 = r3;
-	ret->x4 = r4;
-	ret->x5 = r5;
-	ret->x6 = r6;
-
-	return r0;
-}
-
 uint64_t smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
 {
 	uint64_t ret;
 	union daif daif_bak = read_daif();
 
-	read_modify_write_daif( .d=0, .a=0, .i=1, .f=0 );
-
-	// Wind up timer for a long delay so
-	// the smc gets interrupted if it hangs too long.
-	//read_modify_write_cntp_ctl_el0( .enable=0 );
-	//read_modify_write_cntp_tval_el0( .timervalue=19200000 ); // 1 second
+	/*
+	 * Hyp code will call into TZ at some point and if an
+	 * interrupt happens while the cpu is in TZ, it will
+	 * return to our code (!!!) with ret=1 (INTERRUPTED).
+	 *
+	 * There is no way to re-enter hyp and make it re-enter
+	 * TZ to continue the task so we must disable interrupts
+	 * to make sure it finishes properly.
+	 */
+	read_modify_write_daif( .i=1 );
 
 	ret = _smc(x0, x1, x2, x3);
-	//read_modify_write_cntp_ctl_el0( .enable=1 );
 
 	unsafe_write_daif(daif_bak);
 
 	return ret;
 }
 
-
 void psci_off(void)
 {
 	__asm__ volatile(
-		"mov x0, #0x84000000\n\t"
-		"add x0, x0, #8\n\t"
-		"smc #0\n\t"
-	);
-}
-
-void tb_func(void)
-{
-	__asm__ volatile(
-		"hvc 0x1\n\t"
 		"mov x0, #0x84000000\n\t"
 		"add x0, x0, #8\n\t"
 		"smc #0\n\t"

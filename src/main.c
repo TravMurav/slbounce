@@ -11,8 +11,6 @@
 #include "util.h"
 #include "arch.h"
 #include "sl.h"
-#include "tpm.h"
-#include "tzapp.h"
 
 EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 {
@@ -31,10 +29,6 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 		Print(L"Already in EL2!\n\n");
 		return EFI_SUCCESS;
 	}
-
-	/* Sanity check that SMC works */
-	uint64_t psci_version = smc(0x84000000, 0, 0, 0);
-	Print(L"PSCI version = 0x%x\n", psci_version);
 
 	if (argc != 2) {
 		Print(L"Usage: slbounce.efi tcblaunch.exe\n\n");
