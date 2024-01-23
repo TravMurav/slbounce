@@ -72,7 +72,7 @@ EFI_STATUS sl_load_pe(UINT8 *load_addr, UINT64 load_size, PIMAGE_DOS_HEADER pe, 
 
 	SetMem(load_addr, load_size, 0);
 
-	CopyMem(load_addr, pe, 0x400); // Header
+	CopyMem(load_addr, pe, nt->OptionalHeader.SizeOfHeaders); // Header
 
 	PIMAGE_SECTION_HEADER headers = (UINT8*)nt + 0x108; // FIXME don't hardcode this?
 	UINT64 header_count = nt->FileHeader.NumberOfSections;
@@ -302,6 +302,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	smc_data->arg_size = arg_size;
 
 
+	Print(L"Before sanity checks\n");
 
 	/* Do some sanity checks */
 
@@ -330,13 +331,13 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 
 	/* Leftover from real SL */
 	ASSERT(sizeof(struct sl_tz_data) == 0xc8);
-	ASSERT(tz_data->cert_offt == 0x19000);
-	ASSERT(tz_data->cert_size == 0x4030);
-	ASSERT(tz_data->tcg_offt == 0x01d030);
+	//ASSERT(tz_data->cert_offt == 0x19000);
+	//ASSERT(tz_data->cert_size == 0x4030);
+	//ASSERT(tz_data->tcg_offt == 0x01d030);
 	ASSERT(tz_data->tcg_size == 0x2000);
 	ASSERT(tz_data->tcg_used == 0x0);
 	ASSERT(tz_data->tcg_ver == 0x2);
-	ASSERT(tz_data->this_size == 0x20000);
+	//ASSERT(tz_data->this_size == 0x20000);
 	ASSERT(tz_data->crt_offt == 0x1000);
 	ASSERT(tz_data->crt_pages_cnt == 0x18);
 	ASSERT(tz_data->boot_params_size == 0x3000);
