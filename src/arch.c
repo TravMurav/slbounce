@@ -27,7 +27,7 @@ void clear_dcache_range(uint64_t start, uint64_t size)
 	}
 }
 
-static uint64_t _smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
+uint64_t _smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
 {
 	register uint64_t r0 __asm__("r0") = x0;
 	register uint64_t r1 __asm__("r1") = x1;

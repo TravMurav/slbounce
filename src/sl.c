@@ -10,6 +10,7 @@
 #include <efidebug.h>
 
 #include <sysreg/currentel.h>
+#include <sysreg/daif.h>
 
 #include "winnt.h"
 
@@ -86,7 +87,7 @@ EFI_STATUS sl_load_pe(UINT8 *load_addr, UINT64 load_size, UINT8 *pe_data, UINT64
 
 	CopyMem(load_addr, pe, nt->OptionalHeader.SizeOfHeaders); // Header
 
-	PIMAGE_SECTION_HEADER headers = (PIMAGE_SECTION_HEADER)((UINT8*)nt + 0x108); // FIXME don't hardcode this?
+	PIMAGE_SECTION_HEADER headers = (PIMAGE_SECTION_HEADER)((UINT8*)nt + 0x108);
 	UINT64 header_count = nt->FileHeader.NumberOfSections;
 
 	// FIXME this should probably handle errors better...
@@ -212,12 +213,14 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	/* Set up return code path for when tcblaunch.exe fails to start */
 
 	// FIXME: Probably better to just add an extra section into the PE.
+	tz_data->tb_entry_point = (uint64_t)tb_entry;
 	tz_data->tb_virt = (tz_data->tb_entry_point & 0xfffffffffffff000);
 	tz_data->tb_phys = tz_data->tb_virt;
 	tz_data->tb_size = 4096 * 2;
+	tz_data->tb_data.mair = (uint64_t)tb_jmp_buf;
 
-	Print(L"TB entrypoint is 0x%x, Image is at 0x%x, size= 0x%x\n",
-		tz_data->tb_entry_point, tz_data->tb_virt, tz_data->tb_size);
+	Print(L"TB entrypoint is 0x%x, Image is at 0x%x, size= 0x%x, data[0]= 0x%x\n",
+		tz_data->tb_entry_point, tz_data->tb_virt, tz_data->tb_size, tz_data->tb_data.mair);
 
 	/* Allocate (bogus) boot parameters for tcb. */
 
@@ -241,21 +244,20 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	tz_data->boot_params = (uint64_t)bootparams;
 	tz_data->boot_params_size = 4096 * bootparams_pages;
 
-	uint64_t arg_data = tz_data->this_phys;
-	uint64_t arg_size = tz_data->this_size;
 	uint64_t pe_data  = (uint64_t)tcb_data;
 	uint64_t pe_size  = 4096 * tcb_pages;
-
+	uint64_t arg_data = tz_data->this_phys;
+	uint64_t arg_size = tz_data->this_size;
 
 	/* Do some sanity checks */
 
 	/* mssecapp.mbn */
-	ASSERT(arg_data !=0);
+	ASSERT(arg_data != 0);
 	ASSERT(arg_size > 0x17);
 	ASSERT(pe_data != 0);
 	ASSERT(pe_size != 0);
 
-	PIMAGE_DOS_HEADER pe = (PIMAGE_DOS_HEADER)smc_data->pe_data;
+	PIMAGE_DOS_HEADER pe = (PIMAGE_DOS_HEADER)pe_data;
 	PIMAGE_NT_HEADERS64 nt = (PIMAGE_NT_HEADERS64)((UINT8 *)pe + pe->e_lfanew);
 	ASSERT(pe->e_magic == IMAGE_DOS_SIGNATURE);
 	ASSERT(nt->Signature == IMAGE_NT_SIGNATURE);
@@ -270,6 +272,11 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	ASSERT(tz_data->tcg_size != 0);
 	ASSERT(tz_data->this_size > tz_data->tcg_offt);
 	ASSERT(tz_data->this_size - tz_data->tcg_offt >= tz_data->tcg_size);
+
+	/* tcblaunch.exe */
+	ASSERT(tz_data->tb_entry_point != 0);
+	ASSERT(tz_data->tb_virt == tz_data->tb_phys);
+	ASSERT(tz_data->tb_size > 0);
 
 	/* Leftovers from winload.efi doing SL */
 	ASSERT(sizeof(struct sl_tz_data) == 0xc8);
@@ -353,13 +360,16 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	smc_data->num = SL_CMD_LAUNCH;
 	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
 
-	Print(L" == Launch: ");
-	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
-	Print(L"0x%x\n", smcret);
-	if (smcret)
-		goto exit_corrupted;
+	/* We set a special longjmp point here in hopes SL gets us back. */
 
-	Print(L"Bounce is done. Cleaning up.\n");
+	if (tb_setjmp(tb_jmp_buf) == 0) {
+		Print(L" == Launch: ");
+		smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
+		Print(L"0x%x\n", smcret);
+		if (smcret)
+			goto exit_corrupted;
+	}
+	Print(L"(Success)\n");
 
 exit_bp:
 	uefi_call_wrapper(BS->FreePages, 2, bootparams_phys, bootparams_pages);
