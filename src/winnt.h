@@ -55,6 +55,8 @@ typedef struct _IMAGE_DATA_DIRECTORY {
 
 #define IMAGE_NUMBEROF_DIRECTORY_ENTRIES 16
 
+#define IMAGE_SUBSYSTEM_WINDOWS_BOOT_APPLICATION 16
+
 typedef struct _IMAGE_OPTIONAL_HEADER64 {
 	WORD  Magic; /* 0x20b */
 	BYTE MajorLinkerVersion;

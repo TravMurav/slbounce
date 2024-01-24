@@ -81,6 +81,9 @@ EFI_STATUS sl_load_pe(UINT8 *load_addr, UINT64 load_size, UINT8 *pe_data, UINT64
 	if (nt->OptionalHeader.Magic != 0x20b)
 		return EFI_INVALID_PARAMETER;
 
+	if (nt->OptionalHeader.Subsystem != IMAGE_SUBSYSTEM_WINDOWS_BOOT_APPLICATION)
+		return EFI_INVALID_PARAMETER;
+
 	SetMem(load_addr, load_size, 0);
 
 	Print(L"Loadint PE header with %d bytes to 0x%x", nt->OptionalHeader.SizeOfHeaders, load_addr);
@@ -107,7 +110,7 @@ EFI_STATUS sl_load_pe(UINT8 *load_addr, UINT64 load_size, UINT8 *pe_data, UINT64
 	return EFI_SUCCESS;
 }
 
-EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
+EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 {
 	EFI_STATUS ret = EFI_SUCCESS;
 	uint64_t smcret = 0;
@@ -118,7 +121,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	UINT64 tcb_pages = 512; // FIXME: don't hardcode...
 	EFI_PHYSICAL_ADDRESS tcb_phys = 0;
 
-	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, tcb_pages, &tcb_phys);
+	ret = AllocateZeroPages(tcb_pages, &tcb_phys);
 	if (EFI_ERROR(ret))
 		goto exit;
 
@@ -126,13 +129,9 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 
 	UINT8 *tcb_data = (UINT8 *)tcb_phys;
 
-	SetMem(tcb_data, 4096 * tcb_pages, 0);
-
-	UINT8 *tcb_tmp_file = 0;
-
-	ret = uefi_call_wrapper(BS->AllocatePool, 3, EfiLoaderData, tcb_size, (VOID**)&tcb_tmp_file);
-	if (EFI_ERROR(ret)) {
-		Print(L"Can't allocate pool\n");
+	UINT8 *tcb_tmp_file = AllocatePool(tcb_size);
+	if (!tcb_tmp_file) {
+		Print(L"Can't allocate memory for the file\n");
 		goto exit_tcb;
 	}
 
@@ -142,7 +141,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	/* Load the PE into memory */
 	ret = sl_load_pe(tcb_data, tcb_pages * 4096, tcb_tmp_file, tcb_size);
 	if (EFI_ERROR(ret)) {
-		Print(L"Can't load PE into memory\n");
+		Print(L"PE format is invalid.\n");
 		goto exit_tcb;
 	}
 
@@ -163,7 +162,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	EFI_PHYSICAL_ADDRESS buf_phys = 0;
 	UINT64 buf_pages = 27 + cert_pages + 3;
 
-	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, buf_pages, &buf_phys);
+	ret = AllocateZeroPages(buf_pages, &buf_phys);
 	if (EFI_ERROR(ret))
 		goto exit_tcb;
 
@@ -184,11 +183,9 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	 */
 
 	UINT8 *buf = (UINT8 *)buf_phys;
-	SetMem(buf, 4096 * buf_pages, 0);
 
 	struct sl_smc_params *smc_data = (struct sl_smc_params *)(buf + 4096 * 1);
-
-	struct sl_tz_data *tz_data = (struct sl_tz_data *)(buf + 4096 * 2);
+	struct sl_tz_data    *tz_data  =    (struct sl_tz_data *)(buf + 4096 * 2);
 
 	tz_data->version = 1;
 	tz_data->cert_offt = 4096 * 25;
@@ -197,7 +194,8 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	UINT8 *buf_cert_data = (UINT8*)tz_data + tz_data->cert_offt;
 	CopyMem(buf_cert_data, cert_data, cert_size);
 
-	uefi_call_wrapper(BS->FreePool, 1, tcb_tmp_file); // Don't need the raw PE file anymore...
+	/* Don't need raw PE anymore. */
+	FreePool(tcb_tmp_file);
 
 	tz_data->tcg_offt = tz_data->cert_offt + cert_size;
 	tz_data->tcg_size = 4096 * 2;
@@ -227,7 +225,7 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	EFI_PHYSICAL_ADDRESS bootparams_phys = 0;
 	UINT64 bootparams_pages = 3;
 
-	ret = uefi_call_wrapper(BS->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, bootparams_pages, &bootparams_phys);
+	ret = AllocateZeroPages(bootparams_pages, &bootparams_phys);
 	if (EFI_ERROR(ret))
 		goto exit_buf;
 
@@ -372,13 +370,13 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	Print(L"(Success)\n");
 
 exit_bp:
-	uefi_call_wrapper(BS->FreePages, 2, bootparams_phys, bootparams_pages);
+	FreePages(bootparams_phys, bootparams_pages);
 
 exit_buf:
-	uefi_call_wrapper(BS->FreePages, 2, buf_phys, buf_pages);
+	FreePages(buf_phys, buf_pages);
 
 exit_tcb:
-	uefi_call_wrapper(BS->FreePages, 2, tcb_phys, tcb_pages);
+	FreePages(tcb_phys, tcb_pages);
 exit:
 	return ret;
 

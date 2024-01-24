@@ -8,4 +8,7 @@ UINT64 FileRead(EFI_FILE_HANDLE FileHandle, UINT8 *Buffer, UINT64 ReadSize);
 void FileClose(EFI_FILE_HANDLE FileHandle);
 void WaitKey(EFI_SYSTEM_TABLE *SystemTable, int line);
 
+EFI_STATUS AllocateZeroPages(UINT64 page_count, EFI_PHYSICAL_ADDRESS *addr);
+void FreePages(EFI_PHYSICAL_ADDRESS addr, UINT64 page_count);
+
 #endif

@@ -9,7 +9,6 @@
 #include <sysreg/currentel.h>
 
 #include "util.h"
-#include "arch.h"
 #include "sl.h"
 
 EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
@@ -39,12 +38,26 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	Print(L"Launching using %s\n", argv[1]);
 
 	volume = GetVolume(ImageHandle);
-	file = FileOpen(volume, argv[1]);
+	if (!volume) {
+		Print(L"Getting volume failed.\n");
+		return EFI_INVALID_PARAMETER;
+	}
 
-	ret = sl_bounce(file, ImageHandle);
+	file = FileOpen(volume, argv[1]);
+	if (!file) {
+		Print(L"Opening file failed.\n");
+		return EFI_INVALID_PARAMETER;
+	}
+
+	ret = sl_bounce(file);
 	if (EFI_ERROR(ret))
 		Print(L"Bounce failed with %d\n", ret);
 
 	Print(L"Running in EL=%d\n", read_currentel().el);
+
+	if (read_currentel().el == 2) {
+		Print(L"Successfully switched to EL2, the firmware may be unstable!\n");
+	}
+
 	return ret;
 }

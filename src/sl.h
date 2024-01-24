@@ -119,6 +119,6 @@ struct sl_boot_params {
 	uint32_t unk5;				// 0x10
 } __PACKED;
 
-EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle);
+EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch);
 
 #endif
