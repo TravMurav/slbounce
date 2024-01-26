@@ -1,6 +1,6 @@
 
 ARCH 		:= aarch64
-SUBSYSTEM 	:= 10
+SUBSYSTEM_APP 	:= 10
 CROSS_COMPILE 	:= aarch64-linux-gnu-
 
 AS             := $(CROSS_COMPILE)as
@@ -23,7 +23,7 @@ CFLAGS += \
 	-mstrict-align
 
 LDFLAGS += \
-	-Wl,--no-wchar-size-warning -Wl,--defsym=EFI_SUBSYSTEM=$(SUBSYSTEM) \
+	-Wl,--no-wchar-size-warning \
 	-e efi_main \
 	-s -Wl,-Bsymbolic -nostdlib -shared \
 	-L $(GNUEFI_OUT)/lib/ -L $(GNUEFI_OUT)/gnuefi \
@@ -37,14 +37,17 @@ LIBEFI_A 	:= $(GNUEFI_OUT)/lib/libefi.a
 LIBGNUEFI_A 	:= $(GNUEFI_OUT)/gnuefi/libgnuefi.a
 CRT0_O 		:= $(GNUEFI_OUT)/gnuefi/crt0-efi-$(ARCH).o
 
-OBJS := \
-	$(OUT_DIR)/main.o \
+SLTEST_LDFLAGS := \
+	-Wl,--defsym=EFI_SUBSYSTEM=$(SUBSYSTEM_APP)
+
+SLTEST_OBJS := \
+	$(OUT_DIR)/test_main.o \
 	$(OUT_DIR)/util.o \
 	$(OUT_DIR)/arch.o \
 	$(OUT_DIR)/sl.o \
 	$(OUT_DIR)/trans.o \
 
-all: $(OUT_DIR) $(LIBEFI_A) $(LIBGNUEFI_A) $(OUT_DIR)/slbounce.efi
+all: $(OUT_DIR) $(LIBEFI_A) $(LIBGNUEFI_A) $(OUT_DIR)/sltest.efi
 
 $(OUT_DIR):
 	mkdir $@
@@ -61,9 +64,9 @@ $(LIBGNUEFI_A):
 	@$(MAKE) -C$(GNUEFI_DIR) CROSS_COMPILE=$(CROSS_COMPILE) ARCH=$(ARCH) gnuefi
 	rm $(GNUEFI_DIR)/inc/elf.h
 
-$(OUT_DIR)/slbounce.so: $(OBJS)
+$(OUT_DIR)/sltest.so: $(SLTEST_OBJS)
 	@echo [ LD  ] $$(basename $@)
-	@$(CC) $(LDFLAGS) $(CRT0_O) $^ -o $@ $(LIBS)
+	@$(CC) $(SLTEST_LDFLAGS) $(LDFLAGS) $(CRT0_O) $^ -o $@ $(LIBS)
 
 $(OUT_DIR)/%.efi: $(OUT_DIR)/%.so
 	@echo [ CPY ] $$(basename $@)

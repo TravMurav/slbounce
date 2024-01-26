@@ -49,7 +49,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 		return EFI_INVALID_PARAMETER;
 	}
 
-	ret = sl_bounce(file);
+	ret = sl_test(file);
 	if (EFI_ERROR(ret))
 		Print(L"Bounce failed with %d\n", ret);
 

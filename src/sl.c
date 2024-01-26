@@ -110,10 +110,30 @@ EFI_STATUS sl_load_pe(UINT8 *load_addr, UINT64 load_size, UINT8 *pe_data, UINT64
 	return EFI_SUCCESS;
 }
 
-EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
+uint64_t sl_smc(struct sl_smc_params *smc_data, enum sl_cmd cmd, uint64_t pe_data, uint64_t pe_size, uint64_t arg_data, uint64_t arg_size)
+{
+	/*
+	 * Some versions of the hyp will clean the memory before
+	 * unmapping it from EL2. We need to recreate the smc_data
+	 * every time.
+	 */
+	smc_data->a = 1;
+	smc_data->b = 0;
+	smc_data->version = 0x10;
+	smc_data->pe_data = pe_data;
+	smc_data->pe_size = pe_size;
+	smc_data->arg_data = arg_data;
+	smc_data->arg_size = arg_size;
+
+	smc_data->num = cmd;
+	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
+
+	return smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
+}
+
+EFI_STATUS sl_create_data(EFI_FILE_HANDLE tcblaunch, struct sl_smc_params **smcdata, uint64_t *pe_data, uint64_t *pe_size, uint64_t *arg_data, uint64_t *arg_size)
 {
 	EFI_STATUS ret = EFI_SUCCESS;
-	uint64_t smcret = 0;
 
 	/* Allocate and load the tcblaunch.exe file. */
 
@@ -242,20 +262,21 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 	tz_data->boot_params = (uint64_t)bootparams;
 	tz_data->boot_params_size = 4096 * bootparams_pages;
 
-	uint64_t pe_data  = (uint64_t)tcb_data;
-	uint64_t pe_size  = 4096 * tcb_pages;
-	uint64_t arg_data = tz_data->this_phys;
-	uint64_t arg_size = tz_data->this_size;
+	*smcdata  = smc_data;
+	*pe_data  = (uint64_t)tcb_data;
+	*pe_size  = 4096 * tcb_pages;
+	*arg_data = tz_data->this_phys;
+	*arg_size = tz_data->this_size;
 
 	/* Do some sanity checks */
 
 	/* mssecapp.mbn */
-	ASSERT(arg_data != 0);
-	ASSERT(arg_size > 0x17);
-	ASSERT(pe_data != 0);
-	ASSERT(pe_size != 0);
+	ASSERT(*arg_data != 0);
+	ASSERT(*arg_size > 0x17);
+	ASSERT(*pe_data != 0);
+	ASSERT(*pe_size != 0);
 
-	PIMAGE_DOS_HEADER pe = (PIMAGE_DOS_HEADER)pe_data;
+	PIMAGE_DOS_HEADER pe = (PIMAGE_DOS_HEADER)*pe_data;
 	PIMAGE_NT_HEADERS64 nt = (PIMAGE_NT_HEADERS64)((UINT8 *)pe + pe->e_lfanew);
 	ASSERT(pe->e_magic == IMAGE_DOS_SIGNATURE);
 	ASSERT(nt->Signature == IMAGE_NT_SIGNATURE);
@@ -295,31 +316,42 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 	clear_dcache_range((uint64_t)buf, 4096 * buf_pages);
 	clear_dcache_range((uint64_t)bootparams, 4096 * bootparams_pages);
 
+	return EFI_SUCCESS;
+
+exit_bp:
+	FreePages(bootparams_phys, bootparams_pages);
+
+exit_buf:
+	FreePages(buf_phys, buf_pages);
+
+exit_tcb:
+	FreePages(tcb_phys, tcb_pages);
+	FreePool(tcb_tmp_file);
+exit:
+	return ret;
+}
+
+EFI_STATUS sl_test(EFI_FILE_HANDLE tcblaunch)
+{
+	EFI_STATUS ret = EFI_SUCCESS;
+	uint64_t smcret = 0;
+	uint64_t pe_data, pe_size, arg_data, arg_size;
+	struct sl_smc_params *smc_data;
+
+	ret = sl_create_data(tcblaunch, &smc_data, &pe_data, &pe_size, &arg_data, &arg_size);
+	if (EFI_ERROR(ret)) {
+		Print(L"Failed to prepare data for Secure-Launch: %d\n", ret);
+		return ret;
+	}
+
 	Print(L"Data creation is done. Trying to perform Secure-Launch...\n");
 
-	/*
-	 * Some versions of the hyp will clean the memory before
-	 * unmapping it from EL2. We need to recreate the smc_data
-	 * every time.
-	 */
-	smc_data->a = 1;
-	smc_data->b = 0;
-	smc_data->version = 0x10;
-	smc_data->pe_data = pe_data;
-	smc_data->pe_size = pe_size;
-	smc_data->arg_data = arg_data;
-	smc_data->arg_size = arg_size;
-
-	smc_data->num = SL_CMD_IS_AVAILABLE;
-	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
-
 	Print(L" == Available: ");
-	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
+	smcret = sl_smc(smc_data, SL_CMD_IS_AVAILABLE, pe_data, pe_size, arg_data, arg_size);
 	Print(L"0x%x\n", smcret);
 	if (smcret) {
 		Print(L"This device does not support Secure-Launch.\n");
-		ret = EFI_UNSUPPORTED;
-		goto exit_bp;
+		return EFI_UNSUPPORTED;
 	}
 
 	/*
@@ -330,55 +362,33 @@ EFI_STATUS sl_bounce(EFI_FILE_HANDLE tcblaunch)
 	 * ever touch again.
 	 */
 
-	smc_data->a = 1;
-	smc_data->b = 0;
-	smc_data->version = 0x10;
-	smc_data->pe_data = pe_data;
-	smc_data->pe_size = pe_size;
-	smc_data->arg_data = arg_data;
-	smc_data->arg_size = arg_size;
-
-	smc_data->num = SL_CMD_AUTH;
-	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
-
 	Print(L" == Auth: ");
-	smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
+	smcret = sl_smc(smc_data, SL_CMD_AUTH, pe_data, pe_size, arg_data, arg_size);
 	Print(L"0x%x\n", smcret);
 	if (smcret)
 		goto exit_corrupted;
-
-	smc_data->a = 1;
-	smc_data->b = 0;
-	smc_data->version = 0x10;
-	smc_data->pe_data = pe_data;
-	smc_data->pe_size = pe_size;
-	smc_data->arg_data = arg_data;
-	smc_data->arg_size = arg_size;
-
-	smc_data->num = SL_CMD_LAUNCH;
-	clear_dcache_range((uint64_t)smc_data, 4096 * 1);
 
 	/* We set a special longjmp point here in hopes SL gets us back. */
 
 	if (tb_setjmp(tb_jmp_buf) == 0) {
 		Print(L" == Launch: ");
-		smcret = smc(SMC_SL_ID, (uint64_t)smc_data, smc_data->num, 0);
+		smcret = sl_smc(smc_data, SL_CMD_LAUNCH, pe_data, pe_size, arg_data, arg_size);
 		Print(L"0x%x\n", smcret);
 		if (smcret)
 			goto exit_corrupted;
 	}
 	Print(L"(Success)\n");
 
-exit_bp:
-	FreePages(bootparams_phys, bootparams_pages);
+	/*
+	 * We just turn the device off here since it's the most
+	 * reliable way to assert that we got to this code.
+	 *
+	 * UEFI doesn't always like to get trolled by switching
+	 * EL under it so we will die soon anyway...
+	 */
+	psci_off();
 
-exit_buf:
-	FreePages(buf_phys, buf_pages);
-
-exit_tcb:
-	FreePages(tcb_phys, tcb_pages);
-exit:
-	return ret;
+	return EFI_SUCCESS;
 
 exit_corrupted:
 	Print(L"=============================================\n");
@@ -387,6 +397,7 @@ exit_corrupted:
 	Print(L"                Halting now.\n");
 	Print(L"=============================================\n");
 
+	/* Everything is probably messed up if we got here, force the user to reboot. */
 	while(1)
 		;
 
