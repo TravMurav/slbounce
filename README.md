@@ -13,6 +13,8 @@ with anything else...
 Usage
 -----
 
+### sltest.efi
+
 To test that slbounce can work on your device, run `sltest.efi` with an absolute path to
 your `tcblaunch.exe` file. (Get that file from your Windows distribution). `sltest.efi`
 will immediately try switching to EL2 and issue PSCI power off command right after. If
@@ -22,6 +24,8 @@ If your device reboots or hangs, there is some issue and SL was not successful.
 ```
 fs0:\> sltest.efi path\to\tcblaunch.exe
 ```
+
+### slbounce.efi
 
 To actually boot an OS with Secure-Launch switch to EL2, you can use `slbounce.efi`.
 
@@ -42,6 +46,33 @@ function. It will call EBS and perform switch to EL2 right after. Thus your boot
 EBS.
 
 If Secure-Launch fails at that point, the device will likely hang or reboot.
+
+Unfortunately due to many firmware-spefic quirks implemented in Linux, it's not as simple
+as just booting your OS in EL2 after the SL happened. One would need to preform some
+changes to how Linux boots in order to not crash trying to talk to now non-existent
+hyp firmware.
+
+### dtbhack.efi
+
+Even though "Making Linux work" is out of scope for this project, since Linux is likely
+the most interesting software to run in EL2 on those devices, a quick hack is supplied
+in this repo to help with initial testing and bring-up.
+
+`dtbhack.efi` is a very simple app that installs your device DTB into the UEFI system
+table and performs minimal (seemingly) necesary hacks to workaround some booting issues.
+
+These include:
+
+- Making a copy of cmd-db data
+- Removing zap-shader node
+
+To use it, do:
+```
+fs0:\> dtbhack.efi path\to\your.dtb
+```
+
+Please note that this will not fix every issue but only attempts to work around the most
+boot-critical ones.
 
 Build
 -----

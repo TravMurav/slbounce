@@ -4,3 +4,6 @@
 [submodule "external/arm64-sysreg-lib"]
 	path = external/arm64-sysreg-lib
 	url = https://github.com/ashwio/arm64-sysreg-lib.git
+[submodule "external/dtc"]
+	path = external/dtc
+	url = https://git.kernel.org/pub/scm/utils/dtc/dtc.git

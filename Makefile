@@ -14,11 +14,12 @@ OUT_DIR := $(CURDIR)/out
 GNUEFI_DIR = $(CURDIR)/external/gnu-efi
 GNUEFI_OUT = $(GNUEFI_DIR)/$(ARCH)
 
+LIBFDT_INC = $(CURDIR)/external/dtc/libfdt/
 SYSREG_INC = $(CURDIR)/external/arm64-sysreg-lib/include
 
 CFLAGS += \
 	-I$(GNUEFI_DIR)/inc/ -I$(GNUEFI_DIR)/inc/$(ARCH) -I$(GNUEFI_DIR)/inc/protocol \
-	-I$(SYSREG_INC) \
+	-I$(SYSREG_INC) -I$(LIBFDT_INC) -Isrc/include \
 	-fpic -fshort-wchar -fno-stack-protector -ffreestanding \
 	-DCONFIG_$(ARCH) -D__MAKEWITH_GNUEFI -DGNU_EFI_USE_MS_ABI \
 	-mstrict-align
@@ -38,30 +39,46 @@ LIBEFI_A 	:= $(GNUEFI_OUT)/lib/libefi.a
 LIBGNUEFI_A 	:= $(GNUEFI_OUT)/gnuefi/libgnuefi.a
 CRT0_O 		:= $(GNUEFI_OUT)/gnuefi/crt0-efi-$(ARCH).o
 
+LIBFDT_OBJS := \
+	$(OUT_DIR)/external/dtc/libfdt/fdt.o \
+	$(OUT_DIR)/external/dtc/libfdt/fdt_ro.o \
+	$(OUT_DIR)/external/dtc/libfdt/fdt_wip.o \
+	$(OUT_DIR)/external/dtc/libfdt/fdt_sw.o \
+	$(OUT_DIR)/external/dtc/libfdt/fdt_rw.o \
+	$(OUT_DIR)/external/dtc/libfdt/fdt_empty_tree.o \
+	$(OUT_DIR)/external/dtc/libfdt/fdt_addresses.o \
+	$(OUT_DIR)/external/dtc/libfdt/fdt_check.o \
+
+DTBHACK_LDFLAGS := \
+	-Wl,--defsym=EFI_SUBSYSTEM=$(SUBSYSTEM_APP)
+
+DTBHACK_OBJS := \
+	$(OUT_DIR)/src/dtbhack_main.o \
+	$(OUT_DIR)/src/util.o \
+	$(OUT_DIR)/src/libc.o \
+	$(LIBFDT_OBJS)
+
 SLTEST_LDFLAGS := \
 	-Wl,--defsym=EFI_SUBSYSTEM=$(SUBSYSTEM_APP)
 
 SLTEST_OBJS := \
-	$(OUT_DIR)/test_main.o \
-	$(OUT_DIR)/util.o \
-	$(OUT_DIR)/arch.o \
-	$(OUT_DIR)/sl.o \
-	$(OUT_DIR)/trans.o \
+	$(OUT_DIR)/src/test_main.o \
+	$(OUT_DIR)/src/util.o \
+	$(OUT_DIR)/src/arch.o \
+	$(OUT_DIR)/src/sl.o \
+	$(OUT_DIR)/src/trans.o \
 
 SLBOUNCE_LDFLAGS := \
 	-Wl,--defsym=EFI_SUBSYSTEM=$(SUBSYSTEM_RT)
 
 SLBOUNCE_OBJS := \
-	$(OUT_DIR)/bounce_main.o \
-	$(OUT_DIR)/util.o \
-	$(OUT_DIR)/arch.o \
-	$(OUT_DIR)/sl.o \
-	$(OUT_DIR)/trans.o \
+	$(OUT_DIR)/src/bounce_main.o \
+	$(OUT_DIR)/src/util.o \
+	$(OUT_DIR)/src/arch.o \
+	$(OUT_DIR)/src/sl.o \
+	$(OUT_DIR)/src/trans.o \
 
-all: $(OUT_DIR) $(LIBEFI_A) $(LIBGNUEFI_A) $(OUT_DIR)/sltest.efi $(OUT_DIR)/slbounce.efi
-
-$(OUT_DIR):
-	mkdir $@
+all: $(LIBEFI_A) $(LIBGNUEFI_A) $(OUT_DIR)/sltest.efi $(OUT_DIR)/slbounce.efi $(OUT_DIR)/dtbhack.efi
 
 $(LIBEFI_A):
 	@echo [ DEP ] $@
@@ -83,17 +100,23 @@ $(OUT_DIR)/slbounce.so: $(SLBOUNCE_OBJS)
 	@echo [ LD  ] $$(basename $@)
 	@$(CC) $(SLBOUNCE_LDFLAGS) $(LDFLAGS) $(CRT0_O) $^ -o $@ $(LIBS)
 
+$(OUT_DIR)/dtbhack.so: $(DTBHACK_OBJS)
+	@echo [ LD  ] $$(basename $@)
+	@$(CC) $(DTBHACK_LDFLAGS) $(LDFLAGS) $(CRT0_O) $^ -o $@ $(LIBS)
+
 $(OUT_DIR)/%.efi: $(OUT_DIR)/%.so
 	@echo [ CPY ] $$(basename $@)
 	@$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel* \
 	            -j .rela* -j .reloc -j .eh_frame -O binary $< $@
 
-$(OUT_DIR)/%.o: src/%.c
+$(OUT_DIR)/%.o: %.c
 	@echo [ CC  ] $$(basename $@)
+	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) -c $< -o $@
 
-$(OUT_DIR)/%.o: src/%.s
+$(OUT_DIR)/%.o: %.s
 	@echo [ ASM ] $$(basename $@)
+	@mkdir -p $(dir $@)
 	@$(AS) -c $< -o $@
 
 .PHONY: clean
