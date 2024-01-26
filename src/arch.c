@@ -20,7 +20,7 @@ void clear_dcache_range(uint64_t start, uint64_t size)
 	uint64_t cache_line_size = (1 << read_ctr_el0().dminline) * 4;
 	uint64_t i, end = start + size;
 
-	start = -cache_line_size & start;
+	start &= ~(cache_line_size - 1);
 
 	for (i = start; i < end; i += cache_line_size) {
 		__asm__ volatile("dc civac, %0\n" : : "r" (i) :"memory");

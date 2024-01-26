@@ -86,7 +86,7 @@ EFI_STATUS sl_load_pe(UINT8 *load_addr, UINT64 load_size, UINT8 *pe_data, UINT64
 
 	SetMem(load_addr, load_size, 0);
 
-	Print(L"Loadint PE header with %d bytes to 0x%x", nt->OptionalHeader.SizeOfHeaders, load_addr);
+	Print(L"Loadint PE header with %d bytes to 0x%x\n", nt->OptionalHeader.SizeOfHeaders, load_addr);
 
 	CopyMem(load_addr, pe, nt->OptionalHeader.SizeOfHeaders); // Header
 
