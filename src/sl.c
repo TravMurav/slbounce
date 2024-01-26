@@ -403,3 +403,4 @@ exit_corrupted:
 
 	return EFI_UNSUPPORTED;
 }
+

@@ -1,6 +1,7 @@
 
 ARCH 		:= aarch64
-SUBSYSTEM_APP 	:= 10
+SUBSYSTEM_APP 	:= 10	# EFI Application
+SUBSYSTEM_RT 	:= 12	# EFI Runtime driver
 CROSS_COMPILE 	:= aarch64-linux-gnu-
 
 AS             := $(CROSS_COMPILE)as
@@ -47,7 +48,17 @@ SLTEST_OBJS := \
 	$(OUT_DIR)/sl.o \
 	$(OUT_DIR)/trans.o \
 
-all: $(OUT_DIR) $(LIBEFI_A) $(LIBGNUEFI_A) $(OUT_DIR)/sltest.efi
+SLBOUNCE_LDFLAGS := \
+	-Wl,--defsym=EFI_SUBSYSTEM=$(SUBSYSTEM_RT)
+
+SLBOUNCE_OBJS := \
+	$(OUT_DIR)/bounce_main.o \
+	$(OUT_DIR)/util.o \
+	$(OUT_DIR)/arch.o \
+	$(OUT_DIR)/sl.o \
+	$(OUT_DIR)/trans.o \
+
+all: $(OUT_DIR) $(LIBEFI_A) $(LIBGNUEFI_A) $(OUT_DIR)/sltest.efi $(OUT_DIR)/slbounce.efi
 
 $(OUT_DIR):
 	mkdir $@
@@ -67,6 +78,10 @@ $(LIBGNUEFI_A):
 $(OUT_DIR)/sltest.so: $(SLTEST_OBJS)
 	@echo [ LD  ] $$(basename $@)
 	@$(CC) $(SLTEST_LDFLAGS) $(LDFLAGS) $(CRT0_O) $^ -o $@ $(LIBS)
+
+$(OUT_DIR)/slbounce.so: $(SLBOUNCE_OBJS)
+	@echo [ LD  ] $$(basename $@)
+	@$(CC) $(SLBOUNCE_LDFLAGS) $(LDFLAGS) $(CRT0_O) $^ -o $@ $(LIBS)
 
 $(OUT_DIR)/%.efi: $(OUT_DIR)/%.so
 	@echo [ CPY ] $$(basename $@)

@@ -71,3 +71,12 @@ void psci_off(void)
 		"smc #0\n\t"
 	);
 }
+
+void psci_reboot(void)
+{
+	__asm__ volatile(
+		"mov x0, #0x84000000\n\t"
+		"add x0, x0, #9\n\t"
+		"smc #0\n\t"
+	);
+}
