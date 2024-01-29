@@ -66,7 +66,7 @@ uint64_t smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
 void psci_off(void)
 {
 	__asm__ volatile(
-		"mov x0, #0x84000000\n\t"
+		"mov x0, #0xc4000000\n\t"
 		"add x0, x0, #8\n\t"
 		"smc #0\n\t"
 	);
@@ -75,7 +75,7 @@ void psci_off(void)
 void psci_reboot(void)
 {
 	__asm__ volatile(
-		"mov x0, #0x84000000\n\t"
+		"mov x0, #0xc4000000\n\t"
 		"add x0, x0, #9\n\t"
 		"smc #0\n\t"
 	);

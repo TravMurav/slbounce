@@ -59,7 +59,7 @@ draw_loop:
 
 /* _psci_off() - Turn off the device */
 _psci_off:
-	mov	x0, #0x84000000
+	mov	x0, #0xc4000000
 	add	x0, x0, #0x8
 	smc	0x0
 
