@@ -18,12 +18,30 @@ EFI_STATUS sl_test(EFI_FILE_HANDLE tcblaunch, EFI_HANDLE ImageHandle)
 	uint64_t smcret = 0;
 	uint64_t pe_data, pe_size, arg_data, arg_size;
 	struct sl_smc_params *smc_data;
+	struct sl_tz_data *tz_data;
 
 	ret = sl_create_data(tcblaunch, &smc_data, &pe_data, &pe_size, &arg_data, &arg_size);
 	if (EFI_ERROR(ret)) {
 		Print(L"Failed to prepare data for Secure-Launch: %d\n", ret);
 		return ret;
 	}
+
+	/*
+	 * To make sure we can run code after EBS, pass the framebuffer
+	 * to the test code.
+	 */
+
+	EFI_GUID gopGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
+	EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
+	ret = uefi_call_wrapper(BS->LocateProtocol, 3, &gopGuid, NULL, (void**)&gop);
+	if(EFI_ERROR(ret)) {
+		Print(L"Unable to locate GOP\n");
+		return ret;
+	}
+
+	tz_data = (struct sl_tz_data *)arg_data;
+	tz_data->tb_data.sp  = gop->Mode->FrameBufferBase;		// base
+	tz_data->tb_data.tcr = gop->Mode->Info->HorizontalResolution;	// stride
 
 	Print(L"Data creation is done. Trying to perform Secure-Launch...\n");
 

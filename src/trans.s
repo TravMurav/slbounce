@@ -34,11 +34,27 @@ tb_entry:
 	msr	daifset, #0b1111
 	isb
 
+	ldr	x1, [x9, #8]		// tb_data->sp holds framebuffer base
+	ldr	x2, [x9, #16]		// tb_data->tcr holds framebuffer stride
+	cbnz	x1, draw_on_screen	// If we have a framebuffer, draw on it and hang.
+
 	ldr	x0, [x9]		// tb_data->mair holds a pointer to our tb_jmp_buf
 	mov	x1, #1
 	bl	tb_longjmp
 
 	b	_psci_off
+
+draw_on_screen:
+	mov	x0, #(16 * 4)
+	mov	x4, #0x0000FF00
+	mul	x0, x0, x2
+
+draw_loop:
+	str	w4, [x1, x0]
+	sub	x0, x0, #4
+	cbnz	x0, draw_loop
+
+	b	halt
 
 
 /* _psci_off() - Turn off the device */
