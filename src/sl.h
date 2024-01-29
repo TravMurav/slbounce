@@ -119,7 +119,6 @@ struct sl_boot_params {
 	uint32_t unk5;				// 0x10
 } __PACKED;
 
-EFI_STATUS sl_test(EFI_FILE_HANDLE tcblaunch);
 uint64_t sl_smc(struct sl_smc_params *smc_data, enum sl_cmd cmd, uint64_t pe_data, uint64_t pe_size, uint64_t arg_data, uint64_t arg_size);
 EFI_STATUS sl_create_data(EFI_FILE_HANDLE tcblaunch, struct sl_smc_params **smcdata, uint64_t *pe_data, uint64_t *pe_size, uint64_t *arg_data, uint64_t *arg_size);
 
