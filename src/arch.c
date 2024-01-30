@@ -25,6 +25,11 @@ void clear_dcache_range(uint64_t start, uint64_t size)
 	for (i = start; i < end; i += cache_line_size) {
 		__asm__ volatile("dc civac, %0\n" : : "r" (i) :"memory");
 	}
+
+	__asm__ volatile(
+		"dsb ish\n\t"
+		"isb\n\t"
+	);
 }
 
 uint64_t _smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)

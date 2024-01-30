@@ -12,6 +12,7 @@
 #include <libfdt.h>
 
 #include "util.h"
+#include "arch.h"
 
 static EFI_STATUS dtbhack_cmd_db_relocation(UINT8 *dtb)
 {
@@ -204,6 +205,8 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 		status = EFI_LOAD_ERROR;
 		goto error_allocated;
 	}
+
+	clear_dcache_range((uint64_t)dtb, dtb_max_sz);
 
 	/*
 	 * Finally, we need to install the dtb into a UEFI table so

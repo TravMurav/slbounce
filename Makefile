@@ -55,6 +55,7 @@ DTBHACK_LDFLAGS := \
 DTBHACK_OBJS := \
 	$(OUT_DIR)/src/dtbhack_main.o \
 	$(OUT_DIR)/src/util.o \
+	$(OUT_DIR)/src/arch.o \
 	$(OUT_DIR)/src/libc.o \
 	$(LIBFDT_OBJS)
 

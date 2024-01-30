@@ -27,6 +27,7 @@ EFI_STATUS sl_ExitBootServices(EFI_HANDLE ImageHandle, UINTN MapKey)
 
 	/* We set a special longjmp point here in hopes SL gets us back. */
 	if (tb_setjmp(tb_jmp_buf) == 0) {
+		clear_dcache_range((uint64_t)tb_jmp_buf, 8*21);
 		smcret = sl_smc(smc_data, SL_CMD_LAUNCH, pe_data, pe_size, arg_data, arg_size);
 		if (smcret)
 			psci_reboot(); /* Indicate a fatal error with a reboot. */
