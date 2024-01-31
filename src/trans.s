@@ -12,6 +12,7 @@
 
 /* Hypervisor Configuration Register (EL2) */
 .equ	HCR_EL2_TGE,		1 << 27	/* Traps general exceptions. */
+.equ	HCR_EL2_E2H,		1 << 34	/* EL2 Host. */
 
 
 /*
@@ -25,8 +26,7 @@ tb_entry:
 
 	/* Disable MMU for now */
 	mrs	x0, sctlr_el2
-	mov	x1, #~(SCTLR_EL2_M)
-	and	x0, x0, x1
+	bic	x0, x0, #SCTLR_EL2_M
 	msr	sctlr_el2, x0
 	isb
 
@@ -158,7 +158,7 @@ tb_longjmp:
 		//cptr_el2
 
 	/* ArchInitialize() */
-	mov	x2, HCR_EL2_TGE
+	movq	x2, (HCR_EL2_TGE | HCR_EL2_E2H)
 	msr	hcr_el2, x2
 
 	mov	x2, #(CNTHCTL_EL2_EL1PCTEN | CNTHCTL_EL2_EL1PCEN)
