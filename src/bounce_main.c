@@ -16,14 +16,73 @@ static struct sl_smc_params *smc_data;
 static uint64_t pe_data, pe_size, arg_data, arg_size;
 
 EFI_EXIT_BOOT_SERVICES real_ExitBootServices;
+EFI_GET_MEMORY_MAP real_GetMemoryMap;
+
+UINTN LastMemoryMapSize = 0;
+UINTN LastDescriptorSize = 0;
+EFI_MEMORY_DESCRIPTOR *LastMemoryMap;
+
+EFI_STATUS sl_GetMemoryMap(UINTN *MemoryMapSize, EFI_MEMORY_DESCRIPTOR *MemoryMap, UINTN *MapKey,
+			   UINTN *DescriptorSize, UINT32 *DescriptorVersion)
+{
+	EFI_STATUS status = uefi_call_wrapper(real_GetMemoryMap, 5,
+			MemoryMapSize, MemoryMap, MapKey, DescriptorSize, DescriptorVersion);
+
+	if (MemoryMapSize)
+		LastMemoryMapSize = *MemoryMapSize;
+	if (DescriptorSize)
+		LastDescriptorSize = *DescriptorSize;
+	LastMemoryMap = MemoryMap;
+
+	return status;
+}
 
 EFI_STATUS sl_ExitBootServices(EFI_HANDLE ImageHandle, UINTN MapKey)
 {
 	uint64_t smcret = 0;
 
+	/*
+	 * Unfortunately switching to EL2 will corrupt the caches and
+	 * the memory will be gone if it was not flushed to ram. Since
+	 * the OS loaders generally assume EBS won't break caches, we
+	 * have to flush and invalidate everything to make sure loader
+	 * doesn't break.
+	 *
+	 * We can't possibly know which memory was touched by the loader
+	 * so we just flush everything that was allocated here. This
+	 * is suboptimal but would hopefully make sure we don't crash.
+	 *
+	 * Note that if we try to flush caches on hyp-owned memory, we
+	 * will also crash. Thus we perform AUTH command after we flushed
+	 * all the cache.
+	 */
+
+	EFI_MEMORY_DESCRIPTOR *MemoryEntry;
+	for (int i = 0; i < LastMemoryMapSize / LastDescriptorSize; ++i) {
+		MemoryEntry = (EFI_MEMORY_DESCRIPTOR*)((UINT8*)LastMemoryMap + LastDescriptorSize * i);
+		uint64_t start = MemoryEntry->PhysicalStart;
+		uint64_t size  = MemoryEntry->NumberOfPages * 4096;
+
+		switch (MemoryEntry->Type) {
+		case EfiLoaderCode:
+		case EfiLoaderData:
+		case EfiBootServicesCode:
+		case EfiBootServicesData:
+		case EfiRuntimeServicesCode:
+		case EfiRuntimeServicesData:
+		case EfiACPIReclaimMemory:
+			clear_dcache_range(start, size);
+			break;
+		}
+	}
+
 	EFI_STATUS status = uefi_call_wrapper(real_ExitBootServices, 2, ImageHandle, MapKey);
 	if (EFI_ERROR(status))
 		return status;
+
+	smcret = sl_smc(smc_data, SL_CMD_AUTH, pe_data, pe_size, arg_data, arg_size);
+	if (smcret)
+		psci_reboot();
 
 	/* We set a special longjmp point here in hopes SL gets us back. */
 	if (tb_setjmp(tb_jmp_buf) == 0) {
@@ -58,42 +117,21 @@ EFI_STATUS sl_install(EFI_FILE_HANDLE tcblaunch)
 	}
 
 	/*
-	 * From this point onward it's not safe to return to UEFI
-	 * unless we succeed. If the hyp encounters an error, and
-	 * we are lucky enough for it to return to us, we will be
-	 * left with some memory mapped into EL2, which we can't
-	 * ever touch again.
-	 */
-
-	Print(L" == Auth: ");
-	smcret = sl_smc(smc_data, SL_CMD_AUTH, pe_data, pe_size, arg_data, arg_size);
-	Print(L"0x%x\n", smcret);
-	if (smcret)
-		goto exit_corrupted;
-
-	/*
 	 * We can't just install a handler for EBS signal since
 	 * we're not guaranteed to be the last code to run.Thus
 	 * we install our hook into EBS to run SL right after
 	 * the real ExitBootServices() returns.
+	 *
+	 * Since we also need to know the final memory map, we
+	 * hook into GetMemoryMap as well.
 	 */
 	real_ExitBootServices = BS->ExitBootServices;
 	BS->ExitBootServices = sl_ExitBootServices;
 
+	real_GetMemoryMap = BS->GetMemoryMap;
+	BS->GetMemoryMap = sl_GetMemoryMap;
+
 	return EFI_SUCCESS;
-
-exit_corrupted:
-	Print(L"=============================================\n");
-	Print(L"       SMC failed with ret = 0x%x\n", smcret);
-	Print(L" Assuming this system is in corrupted state!\n");
-	Print(L"                Halting now.\n");
-	Print(L"=============================================\n");
-
-	/* Everything is probably messed up if we got here, force the user to reboot. */
-	while(1)
-		;
-
-	return EFI_UNSUPPORTED;
 }
 
 
