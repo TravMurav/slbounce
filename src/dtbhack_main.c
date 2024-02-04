@@ -102,6 +102,33 @@ static EFI_STATUS dtbhack_zap_zap_shader(UINT8 *dtb)
 	return EFI_SUCCESS;
 }
 
+static EFI_STATUS dtbhack_sc7180(UINT8 *dtb)
+{
+	EFI_STATUS status;
+
+	/*
+	 * cmd-db memory is for some reason "broken" after switching to el2.
+	 * Let's make a copy in another place for fun and give linux that.
+	 */
+	status = dtbhack_cmd_db_relocation(dtb);
+	if (EFI_ERROR(status)) {
+		Print(L"Failed to relocate cmd-db: %d\n", status);
+		return status;
+	}
+
+	return status;
+}
+
+static EFI_STATUS dtbhack_sc8280xp(UINT8 *dtb)
+{
+	EFI_STATUS status;
+
+	/* No soc-specific workarounds just yet. Left TODO. */
+	status = EFI_SUCCESS;
+
+	return status;
+}
+
 #define EFI_DTB_TABLE_GUID \
     { 0xb1b621d5, 0xf19c, 0x41a5, {0x83, 0x0b, 0xd9, 0x15, 0x2c, 0x69, 0xaa, 0xe0} }
 
@@ -179,14 +206,25 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	}
 
 	/*
-	 * cmd-db memory is for some reason "broken" after switching to el2.
-	 * Let's make a copy in another place for fun and give linux that.
+	 * SoC-specific updates.
 	 */
-	status = dtbhack_cmd_db_relocation(dtb);
+
+	if (fdt_node_check_compatible(dtb, 0, "qcom,sc7180")) {
+		status = dtbhack_sc7180(dtb);
+	} else if (fdt_node_check_compatible(dtb, 0, "qcom,sc8280xp")) {
+		status = dtbhack_sc8280xp(dtb);
+	} else {
+		Print(L"NOTE: No soc-specific updates done.\n");
+	}
+
 	if (EFI_ERROR(status)) {
-		Print(L"Failed to relocate cmd-db: %d\n", status);
+		Print(L"Failed to apply soc-specific updates: %d\n", status);
 		goto error_allocated;
 	}
+
+	/*
+	 * Generic updates.
+	 */
 
 	/*
 	 * Since we are going to run in EL2, the hyp that would protect zap
