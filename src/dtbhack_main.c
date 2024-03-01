@@ -209,9 +209,9 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	 * SoC-specific updates.
 	 */
 
-	if (fdt_node_check_compatible(dtb, 0, "qcom,sc7180")) {
+	if (!fdt_node_check_compatible(dtb, 0, "qcom,sc7180")) {
 		status = dtbhack_sc7180(dtb);
-	} else if (fdt_node_check_compatible(dtb, 0, "qcom,sc8280xp")) {
+	} else if (!fdt_node_check_compatible(dtb, 0, "qcom,sc8280xp")) {
 		status = dtbhack_sc8280xp(dtb);
 	} else {
 		Print(L"NOTE: No soc-specific updates done.\n");
