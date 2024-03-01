@@ -48,6 +48,8 @@ LIBFDT_OBJS := \
 	$(OUT_DIR)/external/dtc/libfdt/fdt_empty_tree.o \
 	$(OUT_DIR)/external/dtc/libfdt/fdt_addresses.o \
 	$(OUT_DIR)/external/dtc/libfdt/fdt_check.o \
+	$(OUT_DIR)/external/dtc/libfdt/fdt_overlay.o \
+	$(OUT_DIR)/external/dtc/libfdt/fdt_strerror.o \
 
 DTBHACK_LDFLAGS := \
 	-Wl,--defsym=EFI_SUBSYSTEM=$(SUBSYSTEM_APP)

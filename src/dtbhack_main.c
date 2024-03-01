@@ -137,15 +137,15 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	CHAR16 **argv;
 	INTN argc;
 	EFI_STATUS status;
-	int ret;
+	int ret, i;
 
 	InitializeLib(ImageHandle, SystemTable);
 	argc = GetShellArgcArgv(ImageHandle, &argv);
 
 	Print(L"DTB-Hack\n");
 
-	if (argc != 2) {
-		Print(L"Usage: dtbhack.efi DTB\n\n");
+	if (argc < 2) {
+		Print(L"Usage: dtbhack.efi DTB [OVERLAY...]\n\n");
 		return EFI_INVALID_PARAMETER;
 	}
 
@@ -206,6 +206,41 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	}
 
 	/*
+	 * Apply overlays.
+	 */
+
+	for (i = 2; i < argc; ++i) {
+		EFI_FILE_HANDLE dtbo_file = FileOpen(volume, argv[i]);
+		if (!dtbo_file) {
+			Print(L"Failed to open the file %s\n", argv[i]);
+			status = EFI_LOAD_ERROR;
+			goto error_allocated;
+		}
+
+		UINT64 dtbo_size = FileSize(dtbo_file);
+		UINT8 *dtbo = AllocatePool(dtbo_size);
+		if (!dtbo) {
+			Print(L"Failed to allocate memory for dtbo\n");
+			status = EFI_LOAD_ERROR;
+			goto error_allocated;
+		}
+
+		FileRead(dtbo_file, dtbo, dtbo_size);
+
+		Print(L"Installing overlay: %s\n", argv[i]);
+
+		ret = fdt_overlay_apply(dtb, dtbo);
+		if (ret < 0) {
+			Print(L"Failed to apply the overlay\n");
+			status = EFI_LOAD_ERROR;
+			goto error_allocated;
+		}
+
+		FreePool(dtbo);
+	}
+
+
+	/*
 	 * SoC-specific updates.
 	 */
 
@@ -264,7 +299,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	return EFI_SUCCESS;
 
 error_allocated:
-	uefi_call_wrapper(BS->FreePages, 2, dtb_phys, dtb_pages);
+	//uefi_call_wrapper(BS->FreePages, 2, dtb_phys, dtb_pages);
 	return ret;
 }
 

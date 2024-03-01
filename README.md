@@ -63,11 +63,8 @@ in this repo to help with initial testing and bring-up.
 
 `dtbhack.efi` is a very simple app that installs your device DTB into the UEFI system
 table and performs minimal (seemingly) necesary hacks to workaround some booting issues.
-
-These include:
-
-- Making a copy of cmd-db data
-- Removing zap-shader node
+The tool allows you to apply some dtb overlays. A set of possibly useful dtb overlays is
+maintained in `dtbo/` dir. Build them using `make dtbs`.
 
 To use it, do:
 ```
@@ -93,6 +90,11 @@ Then build the project:
 make
 ```
 
+You can also build optional dtbo blobs:
+
+```
+make dtbs
+```
 
 Frequently asked questions
 --------------------------
