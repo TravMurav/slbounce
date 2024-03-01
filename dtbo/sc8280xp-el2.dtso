@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
+/*
+ * sc8280xp specific extensions required to boot in EL2.
+ */
+
+/dts-v1/;
+/plugin/;
+
+&{/} {
+	chosen {
+		dtbhack-el2-overlay = "sc8280xp-el2";
+	};
+};
+
+/* PCIe needs IOMMU to be controlled by Linux when running in el2. */
+&{/soc@0} {
+	pcie_smmu: iommu@14f80000 {
+		compatible = "arm,smmu-v3";
+		reg = <0 0x14f80000 0 0x80000>;
+		interrupts = <0 /*GIC_SPI*/ 951 1 /*IRQ_TYPE_EDGE_RISING*/>,
+			     <0 /*GIC_SPI*/ 955 1 /*IRQ_TYPE_EDGE_RISING*/>,
+			     <0 /*GIC_SPI*/ 953 1 /*IRQ_TYPE_EDGE_RISING*/>;
+		interrupt-names = "eventq",
+				  "gerror",
+				  "cmdq-sync";
+		#iommu-cells = <1>;
+		dma-coherent;
+	};
+};
+
+&{/soc@0/pcie@1c00000} {
+	iommu-map = <0 &pcie_smmu 0x60000 0x10000>;
+};
+
+&{/soc@0/pcie@1c08000} {
+	iommu-map = <0 &pcie_smmu 0x50000 0x10000>;
+};
+
+&{/soc@0/pcie@1c10000} {
+	iommu-map = <0 &pcie_smmu 0x40000 0x10000>;
+};
+
+&{/soc@0/pcie@1c18000} {
+	iommu-map = <0 &pcie_smmu 0x30000 0x10000>;
+};
+
+&{/soc@0/pcie@1c20000} {
+	iommu-map = <0 &pcie_smmu 0x20000 0x10000>;
+};

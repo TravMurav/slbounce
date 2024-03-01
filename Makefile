@@ -86,6 +86,8 @@ SLBOUNCE_OBJS := \
 DTBS := \
 	$(OUT_DIR)/dtbo/sc7180-symbols.dtbo \
 	$(OUT_DIR)/dtbo/sc7180-el2.dtbo \
+	$(OUT_DIR)/dtbo/sc8280xp-symbols.dtbo \
+	$(OUT_DIR)/dtbo/sc8280xp-el2.dtbo \
 
 all: $(LIBEFI_A) $(LIBGNUEFI_A) $(OUT_DIR)/sltest.efi $(OUT_DIR)/slbounce.efi $(OUT_DIR)/dtbhack.efi
 
