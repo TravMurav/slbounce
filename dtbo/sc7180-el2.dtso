@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
+/*
+ * sc7180 specific extensions required to boot in EL2.
+ */
+
+/dts-v1/;
+/plugin/;
+
+&{/chosen} {
+	dtbhack-el2-overlay = "sc7180-el2";
+};
+
+/* Venus can be used in EL2 using ChromeOS specific mode. */
+&{/soc@0/video-codec@aa00000} {
+	video-firmware {
+		iommus = <&apps_smmu 0x0c42 0x0>;
+	};
+};

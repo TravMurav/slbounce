@@ -9,6 +9,8 @@ CC             := $(CROSS_COMPILE)gcc
 LD             := $(CROSS_COMPILE)ld
 OBJCOPY        := $(CROSS_COMPILE)objcopy
 
+DTC            := dtc
+
 OUT_DIR := $(CURDIR)/out
 
 GNUEFI_DIR = $(CURDIR)/external/gnu-efi
@@ -81,6 +83,10 @@ SLBOUNCE_OBJS := \
 	$(OUT_DIR)/src/sl.o \
 	$(OUT_DIR)/src/trans.o \
 
+DTBS := \
+	$(OUT_DIR)/dtbo/sc7180-symbols.dtbo \
+	$(OUT_DIR)/dtbo/sc7180-el2.dtbo \
+
 all: $(LIBEFI_A) $(LIBGNUEFI_A) $(OUT_DIR)/sltest.efi $(OUT_DIR)/slbounce.efi $(OUT_DIR)/dtbhack.efi
 
 $(LIBEFI_A):
@@ -121,6 +127,13 @@ $(OUT_DIR)/%.o: %.s
 	@echo [ ASM ] $$(basename $@)
 	@mkdir -p $(dir $@)
 	@$(AS) -c $< -o $@
+
+dtbs: $(DTBS)
+
+$(OUT_DIR)/%.dtbo: %.dtso
+	@echo [ DTC ] $$(basename $@)
+	@mkdir -p $(dir $@)
+	@$(DTC) -O dtb -I dts --align 16 -o $@ $<
 
 .PHONY: clean
 clean:
