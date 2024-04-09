@@ -11,9 +11,45 @@
 	dtbhack-el2-overlay = "sc7180-el2";
 };
 
+//&{/reserved-memory/memory@94600000} { qcom,vmid; }; // rmtfs
+
 /* Venus can be used in EL2 using ChromeOS specific mode. */
 &{/soc@0/video-codec@aa00000} {
 	video-firmware {
 		iommus = <&apps_smmu 0x0c42 0x0>;
 	};
 };
+
+/* We can use PIL with a bit of fun to boot adsp too... */
+&{/soc@0/remoteproc@62400000} {
+	compatible = "qcom,sc7180-adsp-pil";
+	reg = <0 0x62400000 0 0x40c>;
+
+	clocks = <&rpmhcc 0 /* RPMH_CXO_CLK */>,
+		 <&gcc 131 /* GCC_LPASS_CFG_NOC_SWAY_CLK */>,
+		 <&lpasscc 11 /* LPASS_Q6SS_AHBM_CLK */>,
+		 <&lpasscc 12 /* LPASS_Q6SS_AHBS_CLK */>;
+	clock-names = "xo",
+		      "sway_cbcr",
+		      "lpass_ahbm_aon_cbcr",
+		      "lpass_ahbs_aon_cbcr";
+
+	power-domains = <&rpmhpd 6 /* SC7180_LCX */>,
+			<&rpmhpd 5 /* SC7180_LMX */>,
+			<&lpasscc 1 /* LPASS_PDC_HM_GDSCR */>;
+	power-domain-names = "lcx",
+			     "lmx",
+			     "lpass_pdc_hm_gdsc";
+
+	resets = <&pdc_reset 2 /* PDC_AUDIO_SYNC_RESET */>,
+	         <&aoss_reset 6 /* AOSS_CC_LPASS_RESTART */>;
+	reset-names = "pdc_sync",
+		      "cc_lpass";
+
+	iommus = <&apps_smmu 0x1337 0x0>;
+
+	qcom,halt-regs = <&tcsr_regs_1 0x2000>;
+};
+
+&{/soc@0/clock-controller@62d00000} { status = "okay"; }; // lpasscc
+&{/soc@0/clock-controller@63000000} { status = "okay"; }; // lpass_hm

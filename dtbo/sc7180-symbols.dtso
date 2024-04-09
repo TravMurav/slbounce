@@ -3,6 +3,11 @@
 /dts-v1/;
 /plugin/;
 
+/* need to insert a fun phandle to these since base dt doesn't have it... */
+&{/soc@0/reset-controller@b2e0000} { phandle = <0x1001>; };
+&{/soc@0/reset-controller@c2a0000} { phandle = <0x1002>; };
+&{/soc@0/syscon@1f60000} { phandle = <0x1003>; };
+
 /*
  * This is a funny hack to allow phandles on top of a dtb without --symbols
  */
