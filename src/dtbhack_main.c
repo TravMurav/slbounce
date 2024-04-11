@@ -282,6 +282,26 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	clear_dcache_range((uint64_t)dtb, dtb_max_sz);
 
 	/*
+	 * Write the resulting file back for debug.
+	 */
+	EFI_FILE_HANDLE debug_file = FileCreate(volume, L"dtbhack_result.dtb");
+	if (!debug_file) {
+		Print(L"Cant create the file\n");
+		return EFI_INVALID_PARAMETER;
+	}
+
+	UINTN debug_size = fdt_totalsize(dtb);
+
+	UINTN wrote = FileWrite(debug_file, dtb, debug_size);
+	if (debug_size != wrote) {
+		Print(L"Cant write the file\n");
+		return EFI_INVALID_PARAMETER;
+	}
+
+	FileFlush(debug_file);
+	FileClose(debug_file);
+
+	/*
 	 * Finally, we need to install the dtb into a UEFI table so
 	 * the OS can find it.
 	 */

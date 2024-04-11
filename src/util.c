@@ -45,6 +45,21 @@ EFI_FILE_HANDLE FileOpen(EFI_FILE_HANDLE Volume, CHAR16 *FileName)
 	return FileHandle;
 }
 
+EFI_FILE_HANDLE FileCreate(EFI_FILE_HANDLE Volume, CHAR16 *FileName)
+{
+	EFI_STATUS status;
+	EFI_FILE_HANDLE     FileHandle;
+
+	status = uefi_call_wrapper(Volume->Open, 5, Volume, &FileHandle, FileName,
+				   EFI_FILE_MODE_CREATE | EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE, 0);
+	if (EFI_ERROR(status)) {
+		Print(L"Create: %r\n", status);
+		return NULL;
+	}
+
+	return FileHandle;
+}
+
 UINT64 FileSize(EFI_FILE_HANDLE FileHandle)
 {
 	UINT64 ret;
@@ -62,9 +77,20 @@ UINT64 FileRead(EFI_FILE_HANDLE FileHandle, UINT8 *Buffer, UINT64 ReadSize)
 	return ReadSize;
 }
 
+UINT64 FileWrite(EFI_FILE_HANDLE FileHandle, UINT8 *Buffer, UINT64 Size)
+{
+	uefi_call_wrapper(FileHandle->Write, 3, FileHandle, &Size, Buffer);
+	return Size;
+}
+
 void FileClose(EFI_FILE_HANDLE FileHandle)
 {
 	uefi_call_wrapper(FileHandle->Close, 1, FileHandle);
+}
+
+void FileFlush(EFI_FILE_HANDLE FileHandle)
+{
+	uefi_call_wrapper(FileHandle->Flush, 1, FileHandle);
 }
 
 void WaitKey(EFI_SYSTEM_TABLE *SystemTable, int line)
