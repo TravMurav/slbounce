@@ -32,20 +32,22 @@ void clear_dcache_range(uint64_t start, uint64_t size)
 	);
 }
 
-uint64_t _smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
+uint64_t _smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3, uint64_t x4, uint64_t x5)
 {
 	register uint64_t r0 __asm__("r0") = x0;
 	register uint64_t r1 __asm__("r1") = x1;
 	register uint64_t r2 __asm__("r2") = x2;
 	register uint64_t r3 __asm__("r3") = x3;
+	register uint64_t r4 __asm__("r4") = x4;
+	register uint64_t r5 __asm__("r5") = x5;
 	__asm__ volatile(
 		"smc	#0\n"
-		: "+r" (r0) : : "r1", "r2", "r3"
+		: "+r" (r0) : : "r1", "r2", "r3", "r4", "r5"
 	);
 	return r0;
 }
 
-uint64_t smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
+uint64_t smc6(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3, uint64_t x4, uint64_t x5)
 {
 	uint64_t ret;
 	union daif daif_bak = read_daif();
@@ -61,12 +63,18 @@ uint64_t smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
 	 */
 	read_modify_write_daif( .i=1 );
 
-	ret = _smc(x0, x1, x2, x3);
+	ret = _smc(x0, x1, x2, x3, x4, x5);
 
 	unsafe_write_daif(daif_bak);
 
 	return ret;
 }
+
+uint64_t smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
+{
+	return smc6(x0, x1, x2, x3, 0, 0);
+}
+
 
 void psci_off(void)
 {

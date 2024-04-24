@@ -76,6 +76,98 @@ error_allocated:
 	return EFI_UNSUPPORTED;
 }
 
+static EFI_STATUS dtbhack_assign_rmtfs(UINT8 *dtb)
+{
+	uint32_t offset, cid, vmid;
+	uint64_t base, size;
+	const fdt32_t *prop;
+	EFI_STATUS status;
+	int ret;
+
+	offset = fdt_node_offset_by_compatible(dtb, 0, "qcom,rmtfs-mem");
+	if (offset <= 0) {
+		Print(L"Failed to find rmtfs node: %d\n", offset);
+		return EFI_UNSUPPORTED;
+	}
+
+	prop = fdt_getprop(dtb, offset, "reg", &ret);
+	if (ret != 4 * 4) {
+		Print(L"Failed to read reg: %d\n", ret);
+		return EFI_UNSUPPORTED;
+	}
+	base = ((uint64_t)fdt32_to_cpu(prop[0]) << 32) | fdt32_to_cpu(prop[1]);
+	size = ((uint64_t)fdt32_to_cpu(prop[2]) << 32) | fdt32_to_cpu(prop[3]);
+
+	prop = fdt_getprop(dtb, offset, "qcom,client-id", &ret);
+	if (ret <= 0) {
+		Print(L"Failed to read client-id: %d\n", ret);
+		return EFI_UNSUPPORTED;
+	}
+	cid = fdt32_to_cpu(*prop);
+
+	prop = fdt_getprop(dtb, offset, "qcom,vmid", &ret);
+	if (ret <= 0) {
+		Print(L"Failed to read vmid: %d\n", ret);
+		return EFI_UNSUPPORTED;
+	}
+	vmid = fdt32_to_cpu(*prop);
+
+	Print(L"Assigning rmtfs mem: reg=0x%llx size=0x%llx cid=%d vmid=%d -> ", base, size, cid, vmid);
+
+	EFI_PHYSICAL_ADDRESS msg_phys = 0x99900000;
+	UINT64 msg_pages = 4;
+
+	status = uefi_call_wrapper(BS->AllocatePages, 4, AllocateMaxAddress, EfiReservedMemoryType, msg_pages, &msg_phys);
+	if (EFI_ERROR(status)) {
+		Print(L"Failed to allocate memory: %d\n", status);
+		return status;
+	}
+
+	uint64_t *map =  (uint64_t*)(msg_phys + 64);
+	uint32_t map_sz = 16;
+	map[0] = base;
+	map[1] = size;
+
+	uint32_t *src = (uint32_t*)(msg_phys);
+	uint64_t src_sz = 4;
+	src[0] = 3;
+
+	uint32_t *dst = (uint32_t*)(msg_phys + 64 + 64);
+	uint64_t dst_sz = 24 * 2;
+
+	dst[0] = 3;  dst[1] = 6;
+	dst[2] = 0;  dst[3] = 0;
+	dst[4] = 0;  dst[5] = 0;
+
+	dst[6] = vmid; dst[7] = 6;
+	dst[8] = 0;    dst[9] = 0;
+	dst[10] = 0;   dst[11]= 0;
+
+	uint64_t *args = (uint64_t*)(msg_phys + 4096*3);
+	args[0] = src_sz;
+	args[1] = (uint64_t)dst;
+	args[2] = dst_sz;
+	args[3] = 0;
+
+	do {
+		ret = smc6(0x42000c16, 0x1117, (uint64_t)map, map_sz, (uint64_t)src, (uint64_t)args);
+	} while (ret == 1);
+
+	Print(L"ret=%d\n", ret);
+	if (ret)
+		return EFI_UNSUPPORTED;
+
+	ret = fdt_nop_property(dtb, offset, "qcom,vmid");
+	if (ret) {
+		Print(L"Failed to nop vmid prop: %d\n", ret);
+		return EFI_UNSUPPORTED;
+	}
+
+	uefi_call_wrapper(BS->FreePages, 2, msg_phys, msg_pages);
+
+	return EFI_SUCCESS;
+}
+
 static EFI_STATUS dtbhack_zap_zap_shader(UINT8 *dtb)
 {
 	uint32_t offset;
@@ -113,6 +205,16 @@ static EFI_STATUS dtbhack_sc7180(UINT8 *dtb)
 	status = dtbhack_cmd_db_relocation(dtb);
 	if (EFI_ERROR(status)) {
 		Print(L"Failed to relocate cmd-db: %d\n", status);
+		return status;
+	}
+
+	/*
+	 * We need to assign rmtfs memory to the modem and it's
+	 * easier to do while we have the hyp around so just do it here.
+	 */
+	status = dtbhack_assign_rmtfs(dtb);
+	if (EFI_ERROR(status)) {
+		Print(L"Failed to assign rmtfs mem: %d\n", status);
 		return status;
 	}
 

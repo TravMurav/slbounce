@@ -5,6 +5,7 @@
 
 void clear_dcache_range(uint64_t start, uint64_t size);
 uint64_t smc(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3);
+uint64_t smc6(uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3, uint64_t x4, uint64_t x5);
 void psci_off(void);
 void psci_reboot(void);
 
