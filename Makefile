@@ -1,23 +1,24 @@
 
 ARCH 		:= aarch64
-SUBSYSTEM_APP 	:= 10	# EFI Application
-SUBSYSTEM_RT 	:= 12	# EFI Runtime driver
 CROSS_COMPILE 	:= aarch64-linux-gnu-
 
-AS             := $(CROSS_COMPILE)as
-CC             := $(CROSS_COMPILE)gcc
-LD             := $(CROSS_COMPILE)ld
-OBJCOPY        := $(CROSS_COMPILE)objcopy
+AS		:= $(CROSS_COMPILE)as
+CC		:= $(CROSS_COMPILE)gcc
+LD		:= $(CROSS_COMPILE)ld
+OBJCOPY		:= $(CROSS_COMPILE)objcopy
 
-DTC            := dtc
+DTC		:= dtc
 
-OUT_DIR := $(CURDIR)/out
+OUT_DIR		:= $(CURDIR)/out
 
-GNUEFI_DIR = $(CURDIR)/external/gnu-efi
-GNUEFI_OUT = $(GNUEFI_DIR)/$(ARCH)
+GNUEFI_DIR	= $(CURDIR)/external/gnu-efi
+GNUEFI_OUT	= $(GNUEFI_DIR)/$(ARCH)
 
-LIBFDT_INC = $(CURDIR)/external/dtc/libfdt/
-SYSREG_INC = $(CURDIR)/external/arm64-sysreg-lib/include
+LIBFDT_INC	= $(CURDIR)/external/dtc/libfdt/
+SYSREG_INC	= $(CURDIR)/external/arm64-sysreg-lib/include
+
+SUBSYSTEM_APP 	= 10	# EFI Application
+SUBSYSTEM_RT 	= 12	# EFI Runtime driver
 
 CFLAGS += \
 	-I$(GNUEFI_DIR)/inc/ -I$(GNUEFI_DIR)/inc/$(ARCH) -I$(GNUEFI_DIR)/inc/protocol \
@@ -35,7 +36,6 @@ LDFLAGS += \
 LIBS = \
 	-lefi -lgnuefi \
 	-T $(GNUEFI_DIR)/gnuefi/elf_$(ARCH)_efi.lds
-
 
 LIBEFI_A 	:= $(GNUEFI_OUT)/lib/libefi.a
 LIBGNUEFI_A 	:= $(GNUEFI_OUT)/gnuefi/libgnuefi.a
@@ -89,31 +89,31 @@ DTBS := \
 	$(OUT_DIR)/dtbo/sc8280xp-symbols.dtbo \
 	$(OUT_DIR)/dtbo/sc8280xp-el2.dtbo \
 
-all: $(LIBEFI_A) $(LIBGNUEFI_A) $(OUT_DIR)/sltest.efi $(OUT_DIR)/slbounce.efi $(OUT_DIR)/dtbhack.efi
+all: $(OUT_DIR)/sltest.efi $(OUT_DIR)/slbounce.efi $(OUT_DIR)/dtbhack.efi
 
-$(LIBEFI_A):
+.INTERMEDIATE: $(GNUEFI_DIR)/inc/elf.h
+$(GNUEFI_DIR)/inc/elf.h:
+	ln -sf /usr/include/elf.h $(GNUEFI_DIR)/inc/elf.h
+
+$(LIBEFI_A): $(GNUEFI_DIR)/inc/elf.h
 	@echo [ DEP ] $@
-	ln -s /usr/include/elf.h $(GNUEFI_DIR)/inc/elf.h
 	@$(MAKE) -C$(GNUEFI_DIR) CROSS_COMPILE=$(CROSS_COMPILE) ARCH=$(ARCH) lib
-	rm $(GNUEFI_DIR)/inc/elf.h
 
-$(LIBGNUEFI_A):
+$(LIBGNUEFI_A): $(GNUEFI_DIR)/inc/elf.h
 	@echo [ DEP ] $@
-	ln -s /usr/include/elf.h $(GNUEFI_DIR)/inc/elf.h
 	@$(MAKE) -C$(GNUEFI_DIR) CROSS_COMPILE=$(CROSS_COMPILE) ARCH=$(ARCH) gnuefi
-	rm $(GNUEFI_DIR)/inc/elf.h
 
-$(OUT_DIR)/sltest.so: $(SLTEST_OBJS)
+$(OUT_DIR)/sltest.so: $(SLTEST_OBJS) $(LIBEFI_A) $(LIBGNUEFI_A)
 	@echo [ LD  ] $$(basename $@)
-	@$(CC) $(SLTEST_LDFLAGS) $(LDFLAGS) $(CRT0_O) $^ -o $@ $(LIBS)
+	@$(CC) $(SLTEST_LDFLAGS) $(LDFLAGS) $(CRT0_O) $(SLTEST_OBJS) -o $@ $(LIBS)
 
-$(OUT_DIR)/slbounce.so: $(SLBOUNCE_OBJS)
+$(OUT_DIR)/slbounce.so: $(SLBOUNCE_OBJS) $(LIBEFI_A) $(LIBGNUEFI_A)
 	@echo [ LD  ] $$(basename $@)
-	@$(CC) $(SLBOUNCE_LDFLAGS) $(LDFLAGS) $(CRT0_O) $^ -o $@ $(LIBS)
+	@$(CC) $(SLBOUNCE_LDFLAGS) $(LDFLAGS) $(CRT0_O) $(SLBOUNCE_OBJS) -o $@ $(LIBS)
 
-$(OUT_DIR)/dtbhack.so: $(DTBHACK_OBJS)
+$(OUT_DIR)/dtbhack.so: $(DTBHACK_OBJS) $(LIBEFI_A) $(LIBGNUEFI_A)
 	@echo [ LD  ] $$(basename $@)
-	@$(CC) $(DTBHACK_LDFLAGS) $(LDFLAGS) $(CRT0_O) $^ -o $@ $(LIBS)
+	@$(CC) $(DTBHACK_LDFLAGS) $(LDFLAGS) $(CRT0_O) $(DTBHACK_OBJS) -o $@ $(LIBS)
 
 $(OUT_DIR)/%.efi: $(OUT_DIR)/%.so
 	@echo [ CPY ] $$(basename $@)
