@@ -131,6 +131,11 @@ generations of Qualcomm based devices suggests that this implementation is very 
 being correct. Nonetheless no correctness guarantees are given and using this software might
 have various issues on specific devices.
 
+### Can this be used on android devices?
+
+No. Qualcomm QHEE checks a devcfg flag that allows Secure Launch. This flag is only set
+on devices that were shipped with Windows installed. Thus, since it's not set on Android
+devices, you can't use Secure Launch and slbounce.
 
 License
 -------
