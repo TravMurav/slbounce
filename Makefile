@@ -139,6 +139,6 @@ $(OUT_DIR)/%.dtbo: %.dtso
 
 .PHONY: clean
 clean:
-	rm -r $(OUT_DIR)
+	rm -rf $(OUT_DIR)
 	$(MAKE) -C$(GNUEFI_DIR) ARCH=$(ARCH) clean
 
