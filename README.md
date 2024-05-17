@@ -71,6 +71,17 @@ To use it, do:
 fs0:\> dtbhack.efi path\to\your.dtb
 ```
 
+If you wish to use overlays, do:
+```
+fs0:\> dtbhack.efi path\to\your.dtb dtbo\symbols.dtbo dtbo\overlay1.dtbo ...
+```
+
+> [!TIP]
+> Unless your base dtb contains symbols (was compiled with overlay support)
+> you may need to include special symbols overlay which must be first in the list.
+> This is the case for any dtb compiled from upstream Linux sources as of today since
+> upstream doesn't enable symbols by default.
+
 Please note that this will not fix every issue but only attempts to work around the most
 boot-critical ones.
 
