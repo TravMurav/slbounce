@@ -13,6 +13,11 @@
 	};
 };
 
+/* We can't and don't need to use zap shader in EL2. */
+&{/soc@0/gpu@3d00000/zap-shader} {
+	status = "disabled";
+};
+
 /* PCIe needs IOMMU to be controlled by Linux when running in el2. */
 &{/soc@0} {
 	pcie_smmu: iommu@14f80000 {
