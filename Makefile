@@ -88,6 +88,7 @@ DTBS := \
 	$(OUT_DIR)/dtbo/sc7180-el2.dtbo \
 	$(OUT_DIR)/dtbo/sc8280xp-symbols.dtbo \
 	$(OUT_DIR)/dtbo/sc8280xp-el2.dtbo \
+	$(OUT_DIR)/dtbo/x1e-el2.dtbo \
 
 all: $(OUT_DIR)/sltest.efi $(OUT_DIR)/slbounce.efi $(OUT_DIR)/dtbhack.efi
 

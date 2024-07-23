@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
+/*
+ * x1e specific extensions required to boot in EL2.
+ */
+
+/dts-v1/;
+/plugin/;
+
+&{/} {
+	chosen {
+		dtbhack-el2-overlay = "x1e-el2";
+	};
+};
+
+/* We can't and don't need to use zap shader in EL2. */
+&{/soc@0/gpu@3d00000/zap-shader} {
+	status = "disabled";
+};
+
+/* PCIe needs IOMMU to be controlled by Linux when running in el2. */
+&{/soc@0} {
+	pcie_smmu: iommu@15400000 {
+		compatible = "arm,smmu-v3";
+		reg = <0 0x15400000 0 0x80000>;
+		interrupts = <0 /*GIC_SPI*/ 138 1 /*IRQ_TYPE_EDGE_RISING*/>,
+			     <0 /*GIC_SPI*/ 134 1 /*IRQ_TYPE_EDGE_RISING*/>,
+			     <0 /*GIC_SPI*/ 136 1 /*IRQ_TYPE_EDGE_RISING*/>;
+		interrupt-names = "eventq",
+				  "gerror",
+				  "cmdq-sync";
+		#iommu-cells = <1>;
+		dma-coherent;
+	};
+};
+
+&{/soc@0/pci@1bf8000} {
+	iommu-map = <0 &pcie_smmu 0x60000 0x10000>;
+};
+
+&{/soc@0/pci@1c08000} {
+	iommu-map = <0 &pcie_smmu 0x40000 0x10000>;
+};
