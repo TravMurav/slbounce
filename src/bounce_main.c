@@ -5,12 +5,57 @@
 
 #include <efi.h>
 #include <efilib.h>
+#include <efidebug.h>
+
+#include <libfdt.h>
 
 #include <sysreg/currentel.h>
 
 #include "util.h"
 #include "arch.h"
 #include "sl.h"
+
+
+/**
+ * sl_is_enabled_in_fdt() - Check if dtb contains slbounce flag.
+ *
+ * Check if "/chosen/slbounce,switch-to-el2" exists.
+ *
+ * Returns:
+ *  - EFI_SUCCESS     if the prop exists.
+ *  - EFI_UNSUPPORTED if the prop doesn't exist.
+ */
+EFI_STATUS sl_is_enabled_in_fdt(void)
+{
+	EFI_GUID EfiDtbTableGuid = EFI_DTB_TABLE_GUID;
+	EFI_STATUS status;
+	void *dtb;
+	int ret, chosen;
+
+	status = LibGetSystemConfigurationTable(&EfiDtbTableGuid, &dtb);
+	if (EFI_ERROR(status)) {
+		return EFI_UNSUPPORTED;
+	}
+
+	ret = fdt_check_header(dtb);
+	if (ret) {
+		return EFI_UNSUPPORTED;
+	}
+
+	chosen = fdt_path_offset(dtb, "/chosen");
+	if (chosen < 0) {
+		return EFI_UNSUPPORTED;
+	}
+
+	if (!fdt_getprop(dtb, chosen, "slbounce,switch-to-el2", &ret) && ret == -FDT_ERR_NOTFOUND) {
+		return EFI_UNSUPPORTED;
+	}
+	if (ret < 0) {
+		return EFI_UNSUPPORTED;
+	}
+
+	return EFI_SUCCESS;
+}
 
 static struct sl_smc_params *smc_data;
 static uint64_t pe_data, pe_size, arg_data, arg_size;
@@ -40,6 +85,14 @@ EFI_STATUS sl_GetMemoryMap(UINTN *MemoryMapSize, EFI_MEMORY_DESCRIPTOR *MemoryMa
 EFI_STATUS sl_ExitBootServices(EFI_HANDLE ImageHandle, UINTN MapKey)
 {
 	uint64_t smcret = 0;
+	bool do_sl = false;
+	EFI_STATUS status;
+
+	status = sl_is_enabled_in_fdt();
+	if (status != EFI_SUCCESS && status != EFI_UNSUPPORTED)
+		return status;
+
+	do_sl = (status == EFI_SUCCESS);
 
 	/*
 	 * Unfortunately switching to EL2 will corrupt the caches and
@@ -76,8 +129,8 @@ EFI_STATUS sl_ExitBootServices(EFI_HANDLE ImageHandle, UINTN MapKey)
 		}
 	}
 
-	EFI_STATUS status = uefi_call_wrapper(real_ExitBootServices, 2, ImageHandle, MapKey);
-	if (EFI_ERROR(status))
+	status = uefi_call_wrapper(real_ExitBootServices, 2, ImageHandle, MapKey);
+	if (EFI_ERROR(status) || !do_sl)
 		return status;
 
 	smcret = sl_smc(smc_data, SL_CMD_AUTH, pe_data, pe_size, arg_data, arg_size);
