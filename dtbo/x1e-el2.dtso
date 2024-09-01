@@ -9,6 +9,7 @@
 
 &{/} {
 	chosen {
+		slbounce,switch-to-el2;
 		dtbhack-el2-overlay = "x1e-el2";
 	};
 };

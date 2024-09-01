@@ -8,6 +8,7 @@
 /plugin/;
 
 &{/chosen} {
+	slbounce,switch-to-el2;
 	dtbhack-el2-overlay = "sc7180-el2";
 };
 
