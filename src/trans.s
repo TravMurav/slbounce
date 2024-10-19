@@ -32,7 +32,6 @@ tb_entry:
 
 	/* Make sure interrupts are disabled too */
 	msr	daifset, #0b1111
-	isb
 
 	ldr	x1, [x9, #8]		// tb_data->sp holds framebuffer base
 	ldr	x2, [x9, #16]		// tb_data->tcr holds framebuffer stride
@@ -160,6 +159,7 @@ tb_longjmp:
 	/* ArchInitialize() */
 	movq	x2, (HCR_EL2_TGE | HCR_EL2_E2H)
 	msr	hcr_el2, x2
+	isb
 
 	mov	x2, #(CNTHCTL_EL2_EL1PCTEN | CNTHCTL_EL2_EL1PCEN)
 	msr	cnthctl_el2, x2
