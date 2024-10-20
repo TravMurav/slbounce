@@ -58,7 +58,14 @@ UINT64 FileSize(EFI_FILE_HANDLE FileHandle)
 
 UINT64 FileRead(EFI_FILE_HANDLE FileHandle, UINT8 *Buffer, UINT64 ReadSize)
 {
-	uefi_call_wrapper(FileHandle->Read, 3, FileHandle, &ReadSize, Buffer);
+	EFI_STATUS status;
+
+	status = uefi_call_wrapper(FileHandle->Read, 3, FileHandle, &ReadSize, Buffer);
+	if (EFI_ERROR(status)) {
+		Print(L"FileRead failed with %r (ReadSize=%d)\n", status, ReadSize);
+		return 0;
+	}
+
 	return ReadSize;
 }
 

@@ -156,6 +156,10 @@ EFI_STATUS sl_create_data(EFI_FILE_HANDLE tcblaunch, struct sl_smc_params **smcd
 	}
 
 	UINT64 read_tcb_size = FileRead(tcblaunch, tcb_tmp_file, tcb_size);
+	if (read_tcb_size < tcb_size) {
+		Print(L"Failed to load file: Read %d, expected %d.\n", read_tcb_size, tcb_size);
+		goto exit_tcb;
+	}
 	ASSERT(read_tcb_size == tcb_size);
 
 	/* Load the PE into memory */
