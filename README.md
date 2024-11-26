@@ -19,10 +19,11 @@ Usage
 ### sltest.efi
 
 To test that slbounce can work on your device, run `sltest.efi` with an absolute path to
-your `tcblaunch.exe` file. (Get that file from your Windows distribution). `sltest.efi`
-will immediately try switching to EL2 and draw a green line on top of the screen. If
-you see a green line on the screen, you can successfully switch to EL2. If your device
-reboots or hangs, there is some issue and SL was not successful.
+your `tcblaunch.exe` file. (Get that file from your Windows distribution, it's usually
+located in `/Windows/System32/tcblaunch.exe`). `sltest.efi` will immediately try switching
+to EL2 and draw a green line on top of the screen. If you see a green line on the screen,
+you can successfully switch to EL2. If your device reboots or hangs, there is some issue
+and SL was not successful.
 
 ```
 fs0:\> sltest.efi path\to\tcblaunch.exe
