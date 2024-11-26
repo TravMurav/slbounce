@@ -1,6 +1,6 @@
 [submodule "external/gnu-efi"]
 	path = external/gnu-efi
-	url = https://git.code.sf.net/p/gnu-efi/code
+	url = https://github.com/ncroxon/gnu-efi.git
 [submodule "external/arm64-sysreg-lib"]
 	path = external/arm64-sysreg-lib
 	url = https://github.com/ashwio/arm64-sysreg-lib.git
