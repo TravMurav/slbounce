@@ -7,6 +7,11 @@
 /dts-v1/;
 /plugin/;
 
+/ {
+	/* NixOS tooling wants some reassurance the overlay is compatible with the board. */
+	compatible = "qcom,x1e80100";
+};
+
 &{/} {
 	chosen {
 		dtbhack-el2-overlay = "x1e-el2";

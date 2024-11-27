@@ -7,6 +7,11 @@
 /dts-v1/;
 /plugin/;
 
+/ {
+	/* NixOS tooling wants some reassurance the overlay is compatible with the board. */
+	compatible = "qcom,sc8280xp";
+};
+
 &{/} {
 	chosen {
 		dtbhack-el2-overlay = "sc8280xp-el2";

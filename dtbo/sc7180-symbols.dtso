@@ -3,6 +3,11 @@
 /dts-v1/;
 /plugin/;
 
+/ {
+	/* NixOS tooling wants some reassurance the overlay is compatible with the board. */
+	compatible = "qcom,sc7180";
+};
+
 /*
  * This is a funny hack to allow phandles on top of a dtb without --symbols
  */
