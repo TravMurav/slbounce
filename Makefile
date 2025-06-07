@@ -31,6 +31,10 @@ ifneq ($(DEBUG),)
 	CFLAGS  += -DEFI_DEBUG
 endif
 
+ifneq ($(SLBOUNCE_ALWAYS_SWITCH),)
+	CFLAGS  += -DSLBOUNCE_ALWAYS_SWITCH
+endif
+
 LDFLAGS += \
 	-Wl,--no-wchar-size-warning \
 	-e efi_main \
@@ -86,6 +90,8 @@ SLBOUNCE_OBJS := \
 	$(OUT_DIR)/src/arch.o \
 	$(OUT_DIR)/src/sl.o \
 	$(OUT_DIR)/src/trans.o \
+	$(OUT_DIR)/src/libc.o \
+	$(LIBFDT_OBJS)
 
 DTBS := \
 	$(OUT_DIR)/dtbo/sc7180-symbols.dtbo \

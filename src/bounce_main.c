@@ -5,12 +5,66 @@
 
 #include <efi.h>
 #include <efilib.h>
+#include <efidebug.h>
+
+#include <libfdt.h>
+#include <string.h>
 
 #include <sysreg/currentel.h>
 
 #include "util.h"
 #include "arch.h"
 #include "sl.h"
+
+/**
+ * sl_is_allowed_by_fdt() - Check if dtb is configured for el2.
+ *
+ * Check if the currently loaded dtb has zap shader explicitly
+ * disabled, which is a common enough heuristic for WoA devices
+ * as the zap register is otherwise protected.
+ *
+ * Returns:
+ *  - EFI_SUCCESS     if the dtb is usable in EL2.
+ *  - EFI_UNSUPPORTED if the dtb is not usable in EL2.
+ */
+EFI_STATUS sl_is_allowed_by_fdt(void)
+{
+	EFI_GUID EfiDtbTableGuid = EFI_DTB_TABLE_GUID;
+	const char *prop_status;
+	EFI_STATUS status;
+	int ret, offset;
+	void *dtb;
+
+#ifdef SLBOUNCE_ALWAYS_SWITCH
+	return EFI_SUCCESS;
+#endif
+
+	status = LibGetSystemConfigurationTable(&EfiDtbTableGuid, &dtb);
+	if (EFI_ERROR(status))
+		return EFI_UNSUPPORTED;
+
+	ret = fdt_check_header(dtb);
+	if (ret)
+		return EFI_UNSUPPORTED;
+
+	offset = fdt_node_offset_by_compatible(dtb, 0, "qcom,adreno");
+	if (offset <= 0)
+		return EFI_UNSUPPORTED;
+
+	offset = fdt_subnode_offset(dtb, offset, "zap-shader");
+	if (offset <= 0)
+		return EFI_UNSUPPORTED;
+
+	prop_status = fdt_getprop(dtb, offset, "status", &ret);
+	if (!prop_status || ret <= 0)
+		return EFI_UNSUPPORTED;
+
+	if (!strncmp(prop_status, "disabled", ret))
+		return EFI_SUCCESS;
+
+	return EFI_UNSUPPORTED;
+
+}
 
 static struct sl_smc_params *smc_data;
 static uint64_t pe_data, pe_size, arg_data, arg_size;
@@ -40,6 +94,9 @@ EFI_STATUS sl_GetMemoryMap(UINTN *MemoryMapSize, EFI_MEMORY_DESCRIPTOR *MemoryMa
 EFI_STATUS sl_ExitBootServices(EFI_HANDLE ImageHandle, UINTN MapKey)
 {
 	uint64_t smcret = 0;
+
+	if (sl_is_allowed_by_fdt() != EFI_SUCCESS)
+		return uefi_call_wrapper(real_ExitBootServices, 2, ImageHandle, MapKey);
 
 	/*
 	 * Unfortunately switching to EL2 will corrupt the caches and
