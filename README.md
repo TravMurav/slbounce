@@ -102,6 +102,10 @@ Then build the project:
 make
 ```
 
+You can enable extended debugging messages by adding `DEBUG=1` to make cmdline.
+To make slbounce unconditionally switch to EL2 instead of trying to guess based
+on the loaded dtb, add `SLBOUNCE_ALWAYS_SWITCH=1`.
+
 You can also build optional dtbo blobs:
 
 ```
