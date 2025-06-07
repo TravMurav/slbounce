@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /* Copyright (c) 2024 Nikita Travkin <nikita@trvn.ru> */
 
-#define EFI_DEBUG 1
-
 #include <stdint.h>
 
 #include <efi.h>
@@ -41,14 +39,14 @@ EFI_STATUS sl_get_cert_entry(UINT8 *tcb_data, UINT8 **data, UINT64 *size)
 
 	PIMAGE_DATA_DIRECTORY security = &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_SECURITY];
 
-	Print(L"Security entry at offt 0x%x with size 0x%x\n", security->VirtualAddress, security->Size);
+	Dbg(L"Security entry at offt 0x%x with size 0x%x\n", security->VirtualAddress, security->Size);
 
 	*data = (UINT8 *)pe + security->VirtualAddress;
 	*size = security->Size;
 
 	PWIN_CERTIFICATE cert = (PWIN_CERTIFICATE)*data;
 
-	Print(L"Cert: Len=0x%x, Rev=0x%x, Type=0x%x\n", cert->dwLength, cert->wRevision, cert->wCertificateType);
+	Dbg(L"Cert: Len=0x%x, Rev=0x%x, Type=0x%x\n", cert->dwLength, cert->wRevision, cert->wCertificateType);
 
 	if (cert->wRevision != 0x200 || cert->wCertificateType != 2)
 		return EFI_INVALID_PARAMETER;
@@ -86,7 +84,7 @@ EFI_STATUS sl_load_pe(UINT8 *load_addr, UINT64 load_size, UINT8 *pe_data, UINT64
 
 	SetMem(load_addr, load_size, 0);
 
-	Print(L"Loadint PE header with %d bytes to 0x%x\n", nt->OptionalHeader.SizeOfHeaders, load_addr);
+	Dbg(L"Loadint PE header with %d bytes to 0x%x\n", nt->OptionalHeader.SizeOfHeaders, load_addr);
 
 	CopyMem(load_addr, pe, nt->OptionalHeader.SizeOfHeaders); // Header
 
@@ -95,7 +93,7 @@ EFI_STATUS sl_load_pe(UINT8 *load_addr, UINT64 load_size, UINT8 *pe_data, UINT64
 
 	// FIXME this should probably handle errors better...
 	for (int i = 0; i < header_count; ++i) {
-		Print(L" - Loading section '%.*a' with %d bytes from offt=0x%x to 0x%x\n",
+		Dbg(L" - Loading section '%.*a' with %d bytes from offt=0x%x to 0x%x\n",
 			8, headers[i].Name, headers[i].SizeOfRawData,
 			headers[i].PointerToRawData,
 			load_addr + headers[i].VirtualAddress);
@@ -145,7 +143,7 @@ EFI_STATUS sl_create_data(EFI_FILE_HANDLE tcblaunch, struct sl_smc_params **smcd
 	if (EFI_ERROR(ret))
 		goto exit;
 
-	Print(L"Allocated %d pages at 0x%x (TCB)\n", tcb_pages, tcb_phys);
+	Dbg(L"Allocated %d pages at 0x%x (TCB)\n", tcb_pages, tcb_phys);
 
 	UINT8 *tcb_data = (UINT8 *)tcb_phys;
 
@@ -186,7 +184,7 @@ EFI_STATUS sl_create_data(EFI_FILE_HANDLE tcblaunch, struct sl_smc_params **smcd
 	if (EFI_ERROR(ret))
 		goto exit_tcb;
 
-	Print(L"Allocated %d pages at 0x%x (data, cert pages = %d)\n", buf_pages, buf_phys, cert_pages);
+	Dbg(L"Allocated %d pages at 0x%x (data, cert pages = %d)\n", buf_pages, buf_phys, cert_pages);
 
 	/*
 	 * Our memory map for pages in this buffer is:
@@ -237,7 +235,7 @@ EFI_STATUS sl_create_data(EFI_FILE_HANDLE tcblaunch, struct sl_smc_params **smcd
 	tz_data->tb_size = 4096 * 2;
 	tz_data->tb_data.mair = (uint64_t)tb_jmp_buf;
 
-	Print(L"TB entrypoint is 0x%x, Image is at 0x%x, size= 0x%x, data[0]= 0x%x\n",
+	Dbg(L"TB entrypoint is 0x%x, Image is at 0x%x, size= 0x%x, data[0]= 0x%x\n",
 		tz_data->tb_entry_point, tz_data->tb_virt, tz_data->tb_size, tz_data->tb_data.mair);
 
 	/* Allocate (bogus) boot parameters for tcb. */
@@ -249,7 +247,7 @@ EFI_STATUS sl_create_data(EFI_FILE_HANDLE tcblaunch, struct sl_smc_params **smcd
 	if (EFI_ERROR(ret))
 		goto exit_buf;
 
-	Print(L"Allocated %d pages at 0x%x (bootparams)\n", bootparams_pages, bootparams_phys);
+	Dbg(L"Allocated %d pages at 0x%x (bootparams)\n", bootparams_pages, bootparams_phys);
 
 	struct sl_boot_params *bootparams = (struct sl_boot_params *)bootparams_phys;
 	/*

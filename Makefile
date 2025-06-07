@@ -27,6 +27,10 @@ CFLAGS += \
 	-DCONFIG_$(ARCH) -D__MAKEWITH_GNUEFI -DGNU_EFI_USE_MS_ABI \
 	-mstrict-align
 
+ifneq ($(DEBUG),)
+	CFLAGS  += -DEFI_DEBUG
+endif
+
 LDFLAGS += \
 	-Wl,--no-wchar-size-warning \
 	-e efi_main \

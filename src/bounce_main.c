@@ -106,11 +106,11 @@ EFI_STATUS sl_install(EFI_FILE_HANDLE tcblaunch)
 		return ret;
 	}
 
-	Print(L"Data creation is done. Trying to prepare Secure-Launch...\n");
+	Dbg(L"Data creation is done. Trying to prepare Secure-Launch...\n");
 
-	Print(L" == Available: ");
+	Dbg(L" == Available: ");
 	smcret = sl_smc(smc_data, SL_CMD_IS_AVAILABLE, pe_data, pe_size, arg_data, arg_size);
-	Print(L"0x%x\n", smcret);
+	Dbg(L"0x%x\n", smcret);
 	if (smcret) {
 		Print(L"This device does not support Secure-Launch.\n");
 		return EFI_UNSUPPORTED;
@@ -145,8 +145,8 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	InitializeLib(ImageHandle, SystemTable);
 	argc = GetShellArgcArgv(ImageHandle, &argv);
 
-	Print(L"SL-Bounce\n");
-	Print(L"Running in EL=%d\n", read_currentel().el);
+	Dbg(L"SL-Bounce\n");
+	Dbg(L"Running in EL=%d\n", read_currentel().el);
 
 	if (read_currentel().el != 1) {
 		Print(L"Already in EL2!\n\n");
@@ -161,7 +161,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
 	file = FileOpen(volume, L"tcblaunch.exe");
 	if (!file) {
-		Print(L"Opening file failed.\n");
+		Print(L"Opening file \"tcblaunch.exe\" failed.\n");
 		return EFI_INVALID_PARAMETER;
 	}
 
@@ -171,7 +171,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 		return ret;
 	}
 
-	Print(L"=================================================\n");
+	Print(L"===[ slbounce ]==================================\n");
 	Print(L" BS->ExitBootServices() was replaced with a hook\n");
 	Print(L"  that would perform Secure-Launch right after\n");
 	Print(L"exiting UEFI. Your system will crash if SL fails.\n");

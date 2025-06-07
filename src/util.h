@@ -1,6 +1,14 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <efi.h>
+
+#ifdef EFI_DEBUG
+	#define Dbg Print
+#else
+	#define Dbg(...)
+#endif
+
 EFI_FILE_HANDLE GetVolume(EFI_HANDLE image);
 EFI_FILE_HANDLE FileOpen(EFI_FILE_HANDLE Volume, CHAR16 *FileName);
 UINT64 FileSize(EFI_FILE_HANDLE FileHandle);

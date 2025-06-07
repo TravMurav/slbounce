@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-#define EFI_DEBUG 1
-
 #include <efi.h>
 #include <efilib.h>
 #include <efidebug.h>
