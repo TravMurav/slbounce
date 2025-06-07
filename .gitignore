@@ -1,2 +1,5 @@
 out/
 release/
+
+.cache/
+compile_commands.json
