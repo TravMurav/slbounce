@@ -35,9 +35,10 @@ to quickly test that slbounce can take over EL2 correctly.
 
 To test that slbonce can work on your device, run `sltest.efi` with an absolute
 path to your `tcblaunch.exe` file. `sltest.efi` will immediately try switching
-to EL2 and draw a green line on top of the screen. If you see a green line on
-the screen, you can successfully switch to EL2. If your device reboots or hangs,
-there is some issue and "Secure Launch" was not successful.
+to EL2 and draw a green line on top of the screen, then hang. If you see a green
+line on the screen, you can successfully switch to EL2. If your device reboots
+or hangs without showing the green line, there is some issue and "Secure Launch"
+was not successful.
 
 You can run it from EFI shell like this:
 
