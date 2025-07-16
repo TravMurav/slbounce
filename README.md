@@ -25,7 +25,10 @@ Usage
 > [!IMPORTANT]
 > To use slbounce or sltest you need to acquire a Microsoft-signed TCB binary
 > `tcblaunch.exe`. This binary can usually be found in your Windows installation
-> in `/Windows/System32/tcblaunch.exe`.
+> in `/Windows/System32/tcblaunch.exe`. Please note that Microsoft has recently
+> removed error handling slbounce relies on from latest versions of tcblaunch.exe
+> You thus need to acquire an old enough version where error handling is still
+> present.
 
 ### sltest.efi
 
