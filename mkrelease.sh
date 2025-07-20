@@ -32,6 +32,7 @@ tar --sort=name --mtime="@0" \
 git ls-files --recurse-submodules \
 	| tar 	--sort=name --mtime="@0" \
 		--owner=0 --group=0 --numeric-owner \
+		--transform "s,^,slbounce-$TAG/," \
 		-caf "$BLOB_DIR/slbounce-$TAG.tar.gz" -T-
 
 sign_everything "$BLOB_DIR"
