@@ -98,27 +98,12 @@ services. This way you can add two menu items in your bootloader, sepcifying
 > want slbounce to always switch to EL2. This may be useful if you want to use
 > an OS different from Linux.
 
-### dtbhack.efi
-
-> [!NOTE]
-> dtbhack is currently only useful to boot modem cpu on sc7180 devices, you
-> should ignore this tool in most cases.
-
-dtbhack is a set of experimental hacks that allow modifying the dtb at runtime
-to experiment with "helping" linux boot in EL2. It's features include applying
-DT overlays and installing the devicetree into the EFI system table, as well
-as performing some other pre-boot hacks. As of Linux 6.16 most of those hacks
-are not necessary anymore.
-
-To use it, do:
-```
-fs0:\> dtbhack.efi path\to\your.dtb
-```
-
-If you wish to use overlays, do:
-```
-fs0:\> dtbhack.efi path\to\your.dtb dtbo\symbols.dtbo dtbo\overlay1.dtbo ...
-```
+> [!TIP]
+> The most notable difference for Linux between EL1 and EL2 is the fact that
+> the hypervisor boots remoteprocs (such as adsp) when Linux runs in EL1.
+> While Linux can't yet boot those remoteprocs on it's own in EL2, a different
+> EFI driver - [qebspil](https://github.com/stephan-gh/qebspil/) is available
+> to pre-boot firmware on remoteprocs in EL1 before slbounce switches to EL2.
 
 Build
 -----
